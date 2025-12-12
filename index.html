@@ -1,0 +1,1104 @@
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="app-title">DRK: Comparador Multitarifa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        drk: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            400: '#38bdf8', /* Lighter Blue for Active Hover */
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        powercup: {
+                            50: '#f7fee7',
+                            100: '#ecfccb',
+                            400: '#a3e635', /* Lighter Green for Active Hover */
+                            500: '#84cc16',
+                            600: '#65a30d',
+                            800: '#3f6212',
+                            900: '#365314',
+                            'yellow-flash': '#facc15',
+                        },
+                        'cta-red': {
+                            500: '#CC0000',
+                            600: '#A00000',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        #interactive.viewport { position: relative; width: 100%; height: auto; overflow: hidden; border-radius: 1rem; }
+        #interactive.viewport > video { width: 100%; height: 100%; object-fit: cover; }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .mode-selector { border: 2px solid; }
+
+        /* Estilos de los botones de selección de tarifa (Landing Page) */
+        .tariff-select-btn {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding: 1rem; /* p-4 */
+            background-color: white;
+            border-radius: 1rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06); /* shadow-lg */
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0; /* slate-200 */
+        }
+        
+        /* DRK Active Hover Styles (Default) */
+        .drk-active .tariff-select-btn:hover {
+            border-color: #0ea5e9; /* drk-500 */
+            background-color: #f0f9ff; /* drk-50 */
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(14, 165, 233, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        }
+        .drk-active .tariff-select-btn:hover .arrow-icon {
+            color: #0ea5e9; /* drk-500 */
+        }
+
+        /* POWER CUP Active Hover Styles */
+        .powercup-active .tariff-select-btn:hover {
+            border-color: #84cc16; /* powercup-500 */
+            background-color: #f7fee7; /* powercup-50 */
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(132, 204, 22, 0.2), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        }
+        .powercup-active .tariff-select-btn:hover .arrow-icon {
+            color: #84cc16; /* powercup-500 */
+        }
+
+
+        .icon-wrapper {
+            padding: 0.75rem; /* p-3 */
+            border-radius: 0.75rem; /* rounded-xl */
+            margin-right: 1rem; /* mr-4 */
+            flex-shrink: 0;
+            transition: background-color 0.3s;
+        }
+
+        .arrow-icon {
+            margin-left: auto;
+            font-size: 1.5rem;
+            color: #94a3b8; /* slate-400 */
+            transition: color 0.3s ease;
+        }
+
+        /* Estilos QR */
+        #qr-content-wrapper { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; overflow: hidden; max-height: 0; opacity: 0; }
+        #qr-content-wrapper.active { max-height: 500px; opacity: 1; }
+        #qr-visual-container { position: relative; display: inline-block; background-color: white; border-radius: 1rem; padding: 1rem; border: 4px solid var(--qr-border-color, #0ea5e9); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        #qr-visual-container::before { content: var(--qr-center-text, "DRK"); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: bold; color: #ffffff; background-color: var(--qr-center-bg, #0c4a6e); padding: 8px 12px; border-radius: 6px; z-index: 10; opacity: 0.9; }
+        
+        /* Ocultar elementos dependiendo del tipo de tarifa */
+        .hidden-period { display: none; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+</head>
+<body class="flex flex-col min-h-screen text-slate-800">
+
+    <!-- Navbar Global -->
+    <div id="navbar" class="w-full bg-drk-900 text-white p-4 shadow-md sticky top-0 z-50 transition-colors duration-300">
+        <div class="max-w-lg mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-tight cursor-pointer" onclick="resetToLanding()">
+                DRK <span class="text-drk-500" id="app-logo-accent">Energía</span>
+            </h1>
+            <span class="text-xs bg-drk-800 px-2 py-1 rounded text-drk-100" id="app-subtitle">Selector</span>
+        </div>
+    </div>
+
+    <div id="app" class="w-full max-w-lg mx-auto p-4 md:p-6 flex-grow">
+
+        <!-- 1. LANDING PAGE (SELECCIÓN DE TARIFA) -->
+        <div id="landing-view" class="fade-in flex flex-col items-center justify-center min-h-[60vh] py-8">
+            <div class="bg-white p-6 md:p-8 rounded-3xl shadow-2xl w-full border-t-4 border-drk-500" id="landing-card">
+                <div id="landing-icon-bg" class="w-16 h-16 bg-drk-50 rounded-full flex items-center justify-center mx-auto mb-4 text-drk-600 shadow-inner">
+                    <!-- Logo DRK SVG -->
+                    <svg class="w-8 h-8" viewBox="0 0 100 100" fill="none">
+                        <style>.drk-ring{fill:none;stroke-width:10;stroke-linecap:round;}</style>
+                        <circle class="drk-ring" cx="45" cy="45" r="35" stroke="#E50000"/>
+                        <circle class="drk-ring" cx="55" cy="55" r="35" stroke="#FFCC00"/>
+                        <circle class="drk-ring" cx="45" cy="55" r="35" stroke="#0079C1"/>
+                        <circle class="drk-ring" cx="55" cy="45" r="35" stroke="#00A859"/>
+                    </svg>
+                </div>
+                <h2 id="landing-title" class="text-3xl font-black text-drk-900 mb-2 text-center">DRK Comparador</h2>
+                <p class="text-slate-500 mb-6 text-center">Selecciona el modo de comparación y la tarifa que deseas analizar.</p>
+                
+                <!-- SELECTORES DE MODO (MOVIDO A LA PÁGINA PRINCIPAL) -->
+                <div id="mode-selector-container" class="mb-8 pt-4 border-t border-slate-200">
+                    <p class="text-sm font-bold text-drk-800 mb-3 text-center uppercase tracking-wider">MODO DE COMPARACIÓN</p>
+                    <div id="comparison-mode-selectors" class="flex flex-wrap justify-center gap-2 text-sm">
+                        <!-- DRK Unicamente (Hover Azul claro, Activo Azul 500/400) -->
+                        <label class="mode-selector flex-1 px-2 py-2 rounded-lg cursor-pointer transition border-2 text-slate-600 bg-white hover:bg-drk-100 hover:border-drk-400">
+                            <input type="radio" name="comparison_mode" value="drk_only" class="hidden">
+                            <span class="font-semibold flex items-center justify-between w-full">DRK Únicamente<svg class="w-4 h-4 ml-1 checkmark-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>
+                        </label>
+                        <!-- DRK Prioritario (Default selected - Activo Azul 500/400) -->
+                        <label class="mode-selector flex-1 px-2 py-2 rounded-lg cursor-pointer transition border-2 border-drk-500 text-white bg-drk-500">
+                            <input type="radio" name="comparison_mode" value="drk_prioritized" class="hidden" checked>
+                            <span class="font-semibold flex items-center justify-between w-full">DRK Prioritario<svg class="w-4 h-4 ml-1 checkmark-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>
+                        </label>
+                        <!-- Power Cup Global (Hover Verde claro, Activo Verde 500/400) -->
+                        <label class="mode-selector flex-1 px-2 py-2 rounded-lg cursor-pointer transition border-2 text-slate-600 bg-white hover:bg-powercup-100 hover:border-powercup-400">
+                            <input type="radio" name="comparison_mode" value="overall_best" class="hidden">
+                            <span class="font-black flex flex-col items-center justify-center w-full leading-tight">
+                                <span class="text-base">POWER CUP</span><span class="text-xs font-semibold -mt-0.5">Global</span>
+                            </span>
+                            <svg class="w-4 h-4 ml-1 checkmark-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="w-full space-y-4">
+                    <!-- 2.0 TD Button -->
+                    <button onclick="selectTariffType('2.0TD')" class="tariff-select-btn group">
+                        <div class="icon-wrapper">
+                            <!-- Icono Casa (Hogar / Pequeño Negocio) -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                        </div>
+                        <div class="text-left">
+                            <span class="text-lg font-bold text-drk-900">2.0 TD</span>
+                            <span class="block text-xs text-slate-500">Hogar / Pequeño Negocio</span>
+                        </div>
+                        <span class="arrow-icon">&rarr;</span>
+                    </button>
+
+                    <!-- 3.0 TD Button -->
+                    <button onclick="selectTariffType('3.0TD')" class="tariff-select-btn group">
+                        <div class="icon-wrapper">
+                            <!-- Icono Edificio (Industria / Gran Consumo) -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.18a2 2 0 0 0 1.51-.72L11 1l2 2h3.18a2 2 0 0 1 1.51.72L20 5h1.18a2 2 0 0 1 2 2z"></path><path d="M14 9H8v8h8V9z"></path></svg>
+                        </div>
+                        <div class="text-left">
+                            <span class="text-lg font-bold text-drk-900">3.0 TD</span>
+                            <span class="block text-xs text-slate-500">Industria / Gran Consumo</span>
+                        </div>
+                        <span class="arrow-icon">&rarr;</span>
+                    </button>
+
+                    <!-- 6.1 TD Button -->
+                    <button onclick="selectTariffType('6.1TD')" class="tariff-select-btn group">
+                        <div class="icon-wrapper">
+                            <!-- Icono Rayo (Alta Tensión) -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M13 3v7h6l-8 11V14H5l8-11z"></path></svg>
+                        </div>
+                        <div class="text-left">
+                            <span class="text-lg font-bold text-drk-900">6.1 TD</span>
+                            <span class="block text-xs text-slate-500">Alta Tensión</span>
+                        </div>
+                        <span class="arrow-icon">&rarr;</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. VISTA PRINCIPAL (SCANNER/INPUT) -->
+        <div id="initial-view" class="fade-in hidden">
+            <button onclick="resetToLanding()" class="mb-4 text-sm text-slate-500 hover:text-drk-600 flex items-center gap-1">
+                &larr; Volver a selección
+            </button>
+
+            <div id="initial-card" class="bg-white p-6 rounded-3xl shadow-xl text-center border-t-4 border-drk-500 relative">
+                <div id="tariff-badge" class="absolute top-4 right-4 bg-drk-500 px-2 py-1 rounded-full text-white text-xs font-bold shadow-md">
+                    <span id="current-tariff-label">2.0TD</span> - <span id="tariff-display-badge">0</span>
+                </div>
+                
+                
+                <div id="initial-icon-bg" class="w-16 h-16 bg-drk-50 rounded-full flex items-center justify-center mx-auto mb-4 text-drk-600"></div>
+                
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">Analizar Factura</h2>
+                <p class="text-slate-500 mb-6" id="scan-instruction-text">Escanea el código QR o introduce datos manualmente.</p>
+                
+                <!-- Botones Principales -->
+                <button id="start-scan-btn" class="w-full bg-gradient-to-r from-drk-600 to-drk-800 hover:from-drk-700 hover:to-drk-900 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-3 mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.125 3h3.75a2 2 0 011.664.89l.812 1.22a2 2 0 001.664.89H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>ESCANEAR QR AHORA</span>
+                </button>
+                <input type="file" id="image-file-input" accept="image/*" class="hidden">
+                <button id="upload-menu-btn" class="w-full bg-drk-50 hover:bg-drk-100 text-drk-800 font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1m-4-5l-1-1m0 0l-1-1m0 0l-1-1M12 12v.01"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <span>OPCIONES QR MANUAL</span>
+                </button>
+                <button id="manual-input-btn" class="w-full bg-drk-50 hover:bg-drk-100 text-drk-800 font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3 mt-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    <span>DATOS A MANO</span>
+                </button>
+
+                <p id="loading-status" class="text-center text-sm text-slate-400 mt-4 hidden">Cargando tarifas...</p>
+
+                <!-- PWA Install QR -->
+                <div id="pwa-install-section" class="mt-8 pt-4 border-t border-slate-200">
+                    <label class="flex items-center justify-center cursor-pointer mb-3 text-drk-800 hover:text-drk-900 transition">
+                        <input type="checkbox" id="qr-toggle-checkbox" class="h-4 w-4 text-drk-500 border-gray-300 rounded focus:ring-drk-500 mr-2">
+                        <span class="text-xs font-bold uppercase tracking-wider underline decoration-drk-500 decoration-2 underline-offset-4">Abrir en el Movil</span>
+                    </label>
+                    <div id="qr-content-wrapper" class="opacity-0 max-h-0">
+                        <div id="qr-visual-container" class="mx-auto w-44 h-44 p-2" style="--qr-border-color: #0ea5e9; --qr-center-bg: #0c4a6e; --qr-center-text: 'DRK';">
+                            <div id="qr-code-container"></div>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-3 px-4">Haz una foto del QR y ábrelo en tu móvil.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. VISTA ESCÁNER -->
+        <div id="scanner-view" class="hidden flex-col h-full">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-slate-700">Escaneando...</h2>
+                <button id="stop-scan-btn" class="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg">Cancelar</button>
+            </div>
+            <div class="relative w-full aspect-[3/4] bg-black rounded-2xl overflow-hidden shadow-2xl mb-4">
+                <div id="interactive" class="viewport w-full h-full"></div>
+                <div id="scanner-guide" class="absolute inset-0 border-2 border-drk-500 opacity-50 m-8 rounded-lg pointer-events-none"></div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none"><div class="w-64 h-1 bg-red-500 opacity-50"></div></div>
+            </div>
+            <p class="text-center text-sm text-slate-500 mb-4">Enfoca el código QR de la CNMC.</p>
+            <button id="capture-photo-btn" class="w-full bg-white border-2 border-drk-500 text-drk-800 font-bold py-3 rounded-xl shadow-sm flex items-center justify-center gap-2">Capturar Foto Manualmente</button>
+        </div>
+
+        <!-- 4. VISTA RESULTADOS -->
+        <div id="results-view" class="hidden animate-fade-in-up">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold mb-2">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Análisis Completado
+                </div>
+                <h2 class="text-2xl font-black text-slate-800">Resultado del Estudio</h2>
+                <p class="text-sm text-slate-500">CUPS: <span id="cups-value" class="font-mono text-slate-700"></span></p>
+            </div>
+
+            <div id="result-card" class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 mb-8 relative">
+                <div id="result-header" class="bg-gradient-to-r from-drk-800 to-drk-600 p-6 text-white text-center relative overflow-hidden">
+                    <p class="uppercase tracking-widest text-xs font-semibold text-drk-100 mb-1" id="best-offer-label">LA MEJOR OPCIÓN PARA TI ES</p>
+                    <h2 id="best-offer-name" class="text-2xl md:text-3xl font-extrabold leading-tight mb-2">Nombre Tarifa</h2>
+                    <p id="best-offer-desc" class="text-drk-100 text-sm opacity-90">Descripción</p>
+                </div>
+                <div class="p-6">
+                    <div class="flex flex-col gap-6">
+                        <div class="text-center">
+                            <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Tu Ahorro Anual Estimado</p>
+                            <p id="savings-estimate" class="text-5xl font-black text-green-500 tracking-tight">- €</p>
+                        </div>
+                        <div class="w-full grid grid-cols-2 text-center text-sm border-b pb-4 border-slate-100">
+                            <div class="border-r border-slate-200 pr-2">
+                                <p class="text-slate-400 text-xs font-semibold mb-2 uppercase">TU FACTURA ACTUAL</p>
+                                <div class="mb-3">
+                                    <p class="text-xl font-bold text-red-400 line-through decoration-red-400/50 decoration-2" id="old-period-cost-display">0,00 €</p>
+                                    <p class="text-xs text-slate-500 font-medium" id="old-period-days-label">Total Periodo</p> 
+                                </div>
+                                <div><p class="text-lg font-bold text-red-500 line-through decoration-red-500/50 decoration-2" id="old-annual-cost-display">0,00 €/año</p></div>
+                            </div>
+                            <div class="pl-2">
+                                <p class="text-drk-800 text-xs font-semibold mb-2 uppercase" id="new-cost-label">TU NUEVO COSTE DRK</p>
+                                <div class="mb-3">
+                                    <p class="text-2xl font-black text-drk-900" id="new-monthly-cost-display">0,00 €/mes</p>
+                                    <p class="text-xs text-drk-800 font-medium" id="monthly-label">Estimado Mensual</p>
+                                </div>
+                                <div><p class="text-2xl font-black text-drk-900" id="new-annual-cost-display">0,00 €/año</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 mb-8">
+                <button id="send-offer-btn" class="w-full bg-cta-red-500 hover:bg-cta-red-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-3 mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-2m-4-4l-4 4m0 0l-4-4m4 4V5"></path></svg>
+                    <span>COPIAR COMPARATIVO</span>
+                </button>
+                <button onclick="document.getElementById('details-container').classList.toggle('hidden')" class="text-center text-drk-800 font-bold text-sm hover:underline flex items-center justify-center gap-1" id="details-toggle-btn">Ver desglose detallado</button>
+            </div>
+
+            <div class="mt-8">
+                <button onclick="resetToLanding()" class="w-full bg-white border-2 border-slate-200 hover:border-drk-500 text-slate-600 hover:text-drk-800 font-bold py-4 rounded-xl transition flex items-center justify-center gap-2">
+                    Realizar Nueva Comparación
+                </button>
+            </div>
+        </div>
+
+        <!-- MODALES -->
+        <!-- Modal Datos Manuales -->
+        <div id="manual-input-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full max-h-[90vh] overflow-y-auto">
+                <h3 class="text-xl font-bold text-drk-800 mb-4">Entrada de Datos Manual</h3>
+                <div class="border-b border-slate-200 pb-3 mb-4 bg-slate-50 p-3 rounded-lg">
+                    <h4 class="font-bold text-slate-800 mb-2">Datos Generales</h4>
+                    <input type="text" id="input-cups" placeholder="Número CUPS" class="w-full mb-3 p-3 rounded-lg border border-slate-300 text-sm">
+                    <input type="number" id="input-billing-days" placeholder="Días Facturados" class="w-full p-3 rounded-lg border border-slate-300 text-sm">
+                </div>
+                
+                <!-- Inputs Dinámicos (P1-P6) -->
+                <div class="border-b border-slate-200 pb-3 mb-3">
+                    <h4 class="font-bold text-slate-800 mb-2">Potencias (kW)</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" step="0.01" id="input-p1-kw" placeholder="P1 Punta" class="p-2 border rounded text-sm">
+                        <input type="number" step="0.01" id="input-p2-kw" placeholder="P2 Valle" class="p-2 border rounded text-sm">
+                        <!-- Extra para 3.0TD/6.1TD -->
+                        <input type="number" step="0.01" id="input-p3-kw" placeholder="P3" class="p-2 border rounded text-sm hidden-period">
+                        <input type="number" step="0.01" id="input-p4-kw" placeholder="P4" class="p-2 border rounded text-sm hidden-period">
+                        <input type="number" step="0.01" id="input-p5-kw" placeholder="P5" class="p-2 border rounded text-sm hidden-period">
+                        <input type="number" step="0.01" id="input-p6-kw" placeholder="P6" class="p-2 border rounded text-sm hidden-period">
+                    </div>
+                </div>
+                
+                <!-- Inputs Dinámicos (E1-E6) -->
+                <div class="border-b border-slate-200 pb-3 mb-3">
+                    <h4 class="font-bold text-slate-800 mb-2">Energía (kWh)</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" step="1" id="input-e1-kwh" placeholder="E1 Punta" class="p-2 border rounded text-sm">
+                        <input type="number" step="1" id="input-e2-kwh" placeholder="E2 Llano" class="p-2 border rounded text-sm">
+                        <input type="number" step="1" id="input-e3-kwh" placeholder="E3 Valle" class="p-2 border rounded text-sm">
+                        <!-- Extra para 3.0TD/6.1TD -->
+                        <input type="number" step="1" id="input-e4-kwh" placeholder="E4" class="p-2 border rounded text-sm hidden-period">
+                        <input type="number" step="1" id="input-e5-kwh" placeholder="E5" class="p-2 border rounded text-sm hidden-period">
+                        <input type="number" step="1" id="input-e6-kwh" placeholder="E6" class="p-2 border rounded text-sm hidden-period">
+                    </div>
+                </div>
+
+                <div class="pb-3 mb-3">
+                    <input type="number" step="0.01" id="input-total-bill" placeholder="Total Factura (€)" class="w-full mb-4 p-3 rounded-lg border border-slate-300 text-sm font-bold">
+                </div>
+                
+                <button id="execute-manual-input-btn" class="w-full bg-drk-500 hover:bg-drk-600 text-white font-bold py-3 rounded-xl shadow-md mb-3">CALCULAR</button>
+                <button onclick="document.getElementById('manual-input-modal').classList.add('hidden'); document.getElementById('manual-input-modal').classList.remove('flex');" class="w-full bg-slate-200 text-slate-600 font-bold py-3 rounded-xl text-sm">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Modal Opciones QR -->
+        <div id="qr-options-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full">
+                <h3 class="text-xl font-bold text-drk-800 mb-4" id="modal-qr-title">Seleccione Opción</h3>
+                <button id="modal-upload-file-btn" class="w-full bg-drk-800 hover:bg-drk-900 text-white font-bold py-3 px-6 rounded-xl shadow-md mb-3">Subir Imagen</button>
+                <button id="modal-paste-image-btn" class="w-full bg-drk-600 hover:bg-drk-800 text-white font-bold py-3 px-6 rounded-xl shadow-md mb-4">Pegar Imagen (CTRL+V)</button>
+                <button onclick="document.getElementById('qr-options-modal').classList.add('hidden'); document.getElementById('qr-options-modal').classList.remove('flex');" class="w-full bg-slate-200 font-bold py-3 rounded-xl">Cancelar</button>
+                <textarea id="paste-catcher" class="opacity-0 w-0 h-0 absolute -z-10" aria-hidden="true"></textarea>
+            </div>
+        </div>
+
+        <!-- Modal Datos Cliente -->
+        <div id="send-offer-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full">
+                <h3 class="text-xl font-bold text-drk-800 mb-4" id="modal-client-data-title">Datos Cliente</h3>
+                <input type="text" id="comercial-code-input" placeholder="CÓDIGO COMERCIAL (Obligatorio)" class="w-full mb-3 p-3 rounded-lg border border-slate-300 text-sm">
+                <input type="text" id="client-name-input" placeholder="Nombre Cliente" class="w-full mb-3 p-3 rounded-lg border border-slate-300 text-sm">
+                <input type="tel" id="client-phone-input" placeholder="Teléfono" class="w-full mb-3 p-3 rounded-lg border border-slate-300 text-sm">
+                <input type="email" id="client-email-input" placeholder="Email" class="w-full mb-4 p-3 rounded-lg border border-slate-300 text-sm">
+                <button id="execute-send-offer-btn" class="w-full bg-cta-red-500 hover:bg-cta-red-600 text-white font-bold py-3 rounded-xl shadow-md mb-3">COPIAR HTML</button>
+                <button onclick="document.getElementById('send-offer-modal').classList.add('hidden'); document.getElementById('send-offer-modal').classList.remove('flex');" class="w-full bg-slate-200 font-bold py-3 rounded-xl text-sm">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Modal Error -->
+        <div id="error-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center">
+                <div class="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4" id="error-icon"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2" id="error-title">¡Atención!</h3>
+                <p id="error-message" class="text-slate-600 text-sm mb-6"></p>
+                <button onclick="hideErrorModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT LOGICA -->
+    <script>
+        // CONFIGURACIÓN DE TIPO DE TARIFAS
+        const TARIFF_CONFIG = {
+            '2.0TD': {
+                sheetId: '19CBiWVvxHoWW0fqdbSbLGs-hoISQGORAfebBztFYi3w',
+                periods: 3, // 3 energía, 2 potencia (se estandariza en 3 para lógica array)
+                powerPeriods: 2,
+                label: '2.0 TD',
+                isHighVoltage: false
+            },
+            '3.0TD': {
+                sheetId: '18nieA7yMD9Ytc2Z3EnktoNDZokuMrBet_ETGyhNZDuo',
+                periods: 6,
+                powerPeriods: 6,
+                label: '3.0 TD',
+                isHighVoltage: true
+            },
+            '6.1TD': {
+                sheetId: '18nieA7yMD9Ytc2Z3EnktoNDZokuMrBet_ETGyhNZDuo', // Misma hoja que 3.0TD según instrucciones
+                periods: 6,
+                powerPeriods: 6,
+                label: '6.1 TD',
+                isHighVoltage: true
+            }
+        };
+
+        const BRANDS = {
+            DRK: {
+                NAME: 'DRK', ACCENT: 'drk-500', ACCENT_TEXT: 'Energía',
+                TITLE: 'DRK Comparador',
+                PRIMARY_BG_GRADIENT: 'from-drk-800 to-drk-600', PRIMARY_BUTTON: 'from-drk-600 to-drk-800 hover:from-drk-700 hover:to-drk-900',
+                PRIMARY_TEXT: 'text-drk-800', SECONDARY_BG: 'bg-drk-50', SECONDARY_TEXT: 'text-drk-600', BORDER: 'border-drk-500',
+                LOGO_SVG: `<svg class="w-8 h-8" viewBox="0 0 100 100" fill="none"><style>.drk-ring{fill:none;stroke-width:10;stroke-linecap:round;}</style><circle class="drk-ring" cx="45" cy="45" r="35" stroke="#E50000"/><circle class="drk-ring" cx="55" cy="55" r="35" stroke="#FFCC00"/><circle class="drk-ring" cx="45" cy="55" r="35" stroke="#0079C1"/><circle class="drk-ring" cx="55" cy="45" r="35" stroke="#00A859"/></svg>`,
+                NAV_BG: 'bg-drk-900', NAV_SUBTITLE_BG: 'bg-drk-800', NAV_SUBTITLE_TEXT: 'text-drk-100'
+            },
+            POWER_CUP: {
+                NAME: 'POWER CUP', ACCENT: 'powercup-500', ACCENT_TEXT: '',
+                TITLE: 'POWER CUP Comparador',
+                PRIMARY_BG_GRADIENT: 'from-powercup-900 to-powercup-800', PRIMARY_BUTTON: 'from-powercup-600 to-powercup-800 hover:from-powercup-500 hover:to-powercup-900',
+                PRIMARY_TEXT: 'text-powercup-800', SECONDARY_BG: 'bg-powercup-50', SECONDARY_TEXT: 'text-powercup-600', BORDER: 'border-powercup-500',
+                LOGO_SVG: `<svg width="40" height="40" viewBox="0 0 100 100" fill="none"><path d="M78 40V70C78 80.25 70.25 88 60 88H30C19.75 88 12 80.25 12 70V40C12 29.75 19.75 22 30 22H60C70.25 22 78 29.75 78 40Z" fill="#3f6212"/><circle cx="45" cy="95" r="5" fill="#365314" opacity="0.8"/><rect x="20" y="80" width="50" height="5" rx="2.5" fill="#365314"/><rect x="20" y="30" width="50" height="50" fill="#f7fee7" rx="5"/><rect x="25" y="65" width="40" height="10" rx="2" fill="#84cc16"/><rect x="25" y="50" width="40" height="10" rx="2" fill="#84cc16"/><rect x="25" y="35" width="40" height="10" rx="2" fill="#84cc16"/><path d="M80 20L60 35L70 45L50 60L75 60L65 80L85 65L75 55L85 45L65 45L75 25Z" fill="#facc15" stroke="#3f6212" stroke-width="2" stroke-linejoin="round"/><path d="M78 40C88 40 88 50 88 60C88 70 88 80 78 80" stroke="#3f6212" stroke-width="8" stroke-linecap="round"/></svg>`,
+                NAV_BG: 'bg-powercup-900', NAV_SUBTITLE_BG: 'bg-powercup-800', NAV_SUBTITLE_TEXT: 'text-powercup-100'
+            }
+        };
+
+        const EXTERNAL_APP_URL = 'https://faraujoteixeiradrk-creator.github.io/CALCULADORA-DRK-POWER-QR-CAMBIANDO-COLORES-DESCUENTO-y-DESCAR-TLF/';
+        
+        // Estado
+        let currentTariffs = [];
+        let currentTariffType = '2.0TD';
+        let lastComparisonResult = null;
+        let comparisonMode = 'drk_prioritized';
+        let activeBrand = BRANDS.DRK;
+        
+        // Variables Escáner
+        let scannerRunning = false;
+        let stream = null, video = null, canvas = null, canvasCtx = null, animationFrameId = null;
+
+        // --- NAVEGACIÓN Y ESTADO ---
+
+        function resetToLanding() {
+            stopScanner();
+            lastComparisonResult = null;
+            
+            // 1. Determinar el branding actual
+            const brandToApply = comparisonMode === 'overall_best' ? BRANDS.POWER_CUP : BRANDS.DRK;
+            applyBrandStyles(brandToApply); 
+            
+            // 2. Re-activar el selector de modo correcto
+            const selectorInput = document.querySelector(`input[name="comparison_mode"][value="${comparisonMode}"]`);
+            if (selectorInput) {
+                 selectorInput.checked = true;
+                 selectorInput.dispatchEvent(new Event('change')); // Dispara la lógica de colores del selector
+            }
+
+            document.getElementById('landing-view').classList.remove('hidden');
+            document.getElementById('initial-view').classList.add('hidden');
+            document.getElementById('results-view').classList.add('hidden');
+            document.getElementById('scanner-view').classList.add('hidden');
+            // Resetear inputs extra
+            document.querySelectorAll('.hidden-period').forEach(el => el.style.display = 'none');
+        }
+
+        function selectTariffType(type) {
+            currentTariffType = type;
+            const config = TARIFF_CONFIG[type];
+            
+            // Actualizar UI
+            document.getElementById('current-tariff-label').textContent = config.label;
+            document.getElementById('app-subtitle').textContent = `Comparador ${config.label}`;
+            
+            // Configurar inputs manuales según periodos
+            const extraInputs = document.querySelectorAll('.hidden-period');
+            if (config.isHighVoltage) {
+                extraInputs.forEach(el => el.style.display = 'block');
+            } else {
+                extraInputs.forEach(el => el.style.display = 'none');
+            }
+
+            // Cambiar vista
+            document.getElementById('landing-view').classList.add('hidden');
+            document.getElementById('initial-view').classList.remove('hidden');
+            
+            // Cargar tarifas específicas
+            fetchTariffsFromSheet();
+        }
+
+        // --- CARGA DE DATOS ---
+
+        async function fetchTariffsFromSheet() {
+            const statusEl = document.getElementById('loading-status');
+            statusEl.textContent = `Cargando tarifas ${currentTariffType}...`;
+            statusEl.classList.remove('hidden');
+            
+            const sheetId = TARIFF_CONFIG[currentTariffType].sheetId;
+            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=0&t=${Date.now()}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Error red");
+                const text = await response.text();
+                currentTariffs = parseCSV(text);
+                
+                document.getElementById('tariff-display-badge').textContent = currentTariffs.length;
+                statusEl.classList.add('hidden');
+                
+                if(currentTariffs.length === 0) window.showErrorModal("No se encontraron tarifas en la hoja.");
+                
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = "Error cargando tarifas.";
+                window.showErrorModal("Error de conexión con Google Sheets.");
+            }
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return [];
+            
+            // Detectar delimitador
+            const rawHeader = lines[0];
+            const delimiter = rawHeader.includes(';') ? ';' : ',';
+            
+            const headers = rawHeader.split(delimiter).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+            const data = [];
+
+            for(let i=1; i<lines.length; i++) {
+                const row = lines[i].trim();
+                if(!row) continue;
+                
+                // Regex simple para CSV
+                const regex = new RegExp(`(?:^|${delimiter})(\"(?:[^\"]|\"\")*\"|[^${delimiter}]*)`,"g");
+                const values = [];
+                let match = null;
+                while(match = regex.exec(row)){
+                    let val = match[1].replace(/^"|"$/g, '').replace(/""/g, '"');
+                    values.push(val);
+                }
+
+                if(values.length < 2) continue;
+
+                let item = { cups_match: [currentTariffType] };
+                let valid = true;
+
+                headers.forEach((h, idx) => {
+                    let val = values[idx];
+                    if (h.includes('price') || h.includes('potencia') || h === 'descuento') {
+                        val = parseFloat(val?.replace(',', '.') || 0);
+                        if(isNaN(val)) val = 0;
+                    }
+                    item[h] = val;
+                });
+
+                item.isDrk = item.name?.toUpperCase().includes('DRK');
+                
+                // Filtrar solo tarifas del tipo correcto si comparten hoja (ej: 3.0 vs 6.1)
+                // En este caso asumimos que la hoja trae las correctas o filtramos por nombre si fuera necesario
+                if(item.p1_price !== undefined) data.push(item);
+            }
+            return data;
+        }
+
+        // --- CÁLCULOS ---
+
+        function calculateTariffCost(tariff, data) {
+            const IVA_RATE = 0.21;
+            const IE_RATE = 0.05113;
+            const ANNUAL_DAYS = 365;
+            const config = TARIFF_CONFIG[currentTariffType];
+            
+            // Calcular Potencia
+            let subPower = 0;
+            let powerCosts = [];
+            // Si es 2.0TD tiene 2 periodos de potencia (P1, P2). Si es 3.0 tiene 6.
+            // La data de entrada para 2.0TD suele tener potencia_p1_kw y potencia_p2_kw.
+            // Para simplificar el bucle, asumimos que data tiene las claves correctas.
+            for (let i = 1; i <= config.powerPeriods; i++) {
+                const kw = data[`potencia_p${i}_kw`] || 0;
+                const priceAnnual = tariff[`p_potencia_${i}`] || 0;
+                const priceDay = priceAnnual / ANNUAL_DAYS;
+                const cost = kw * data.dias_facturados * priceDay;
+                subPower += cost;
+                powerCosts.push({ period: i, cost: cost, priceDay: priceDay, kw: kw });
+            }
+
+            // Calcular Energía
+            let subEnergy = 0;
+            let energyCosts = [];
+            for (let i = 1; i <= config.periods; i++) {
+                const kwh = data[`consumo_p${i}`] || (i===1?data.consumo_punta : i===2?data.consumo_llano : i===3?data.consumo_valle : 0) || 0; 
+                // Nota: para 3.0TD/6.1TD se usa consumo_p1...p6
+                const price = tariff[`p${i}_price`] || 0;
+                const cost = kwh * price;
+                energyCosts.push({ period: i, cost: cost, price: price, kwh: kwh });
+                subEnergy += cost;
+            }
+
+            // Descuento
+            const discountRate = (tariff.descuento || 0) / 100;
+            const discountAmount = subEnergy * discountRate;
+            const subEnergyNet = subEnergy - discountAmount;
+
+            const subBase = subPower + subEnergyNet;
+            const costIE = subBase * IE_RATE;
+            const baseImp = subBase + costIE;
+            const costIVA = baseImp * IVA_RATE;
+            const totalPeriod = baseImp + costIVA;
+            
+            const factorAnual = ANNUAL_DAYS / data.dias_facturados;
+            const totalAnnual = totalPeriod * factorAnual;
+            const originalBillAnnual = data.importe_total * factorAnual;
+
+            return {
+                ...data,
+                powerCosts, energyCosts,
+                subPower, subEnergy, subEnergyNet,
+                discountRate, discountAmount,
+                subBase, costIE, baseImp, costIVA, totalPeriod, totalAnnual,
+                originalBillAnnual,
+                savings: originalBillAnnual - totalAnnual,
+                offer: tariff,
+                ieRate: IE_RATE
+            };
+        }
+
+        // --- COMPARADOR ---
+
+        function compareOffers(data) {
+            const results = currentTariffs.map(t => calculateTariffCost(t, data));
+            
+            let bestOverall = null;
+            let bestDrk = null;
+
+            results.forEach(r => {
+                if (!bestOverall || r.savings > bestOverall.savings) bestOverall = r;
+                if (r.offer.isDrk && (!bestDrk || r.savings > bestDrk.savings)) bestDrk = r;
+            });
+
+            if (!bestOverall) return window.showErrorModal("Sin resultados válidos.");
+
+            let final = bestOverall;
+            if (comparisonMode === 'drk_only') final = bestDrk || bestOverall;
+            else if (comparisonMode === 'drk_prioritized' && bestDrk && bestDrk.savings > 0) final = bestDrk;
+
+            // Si ahorro negativo
+            if (final.savings <= 0) {
+                final.isNegativeSavings = true;
+                final.savings = 0;
+                final.totalAnnual = final.originalBillAnnual; // Coste se mantiene
+                final.offer = { name: "Tu Tarifa Actual", description: "Es la mejor opción detectada", isDrk: true };
+            }
+
+            lastComparisonResult = final;
+            
+            // Branding dinámico: Ya se aplica el branding en el selector, aquí solo re-aseguramos
+            let brand = activeBrand; // Usar el brand establecido por el selector
+            
+            // Si el resultado final es un mejor ahorro con Power Cup y el modo no es DRK Only
+            if (comparisonMode !== 'drk_only' && !final.offer.isDrk && !final.isNegativeSavings) {
+                 brand = BRANDS.POWER_CUP;
+            } else if (comparisonMode !== 'overall_best' && final.offer.isDrk) {
+                // Si el modo no es Power Cup Global, y la mejor es DRK, usar DRK branding
+                 brand = BRANDS.DRK;
+            }
+            
+            applyBrandStyles(brand);
+
+            renderResultsUI(final);
+            
+            // Cambiar vista
+            document.getElementById('initial-view').classList.add('hidden');
+            document.getElementById('scanner-view').classList.add('hidden');
+            document.getElementById('results-view').classList.remove('hidden');
+            document.getElementById('results-view').classList.add('animate-fade-in-up');
+        }
+
+        // --- RENDER UI ---
+
+        function renderResultsUI(res) {
+            const eur = n => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+            const num = (n, d=2) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
+            
+            document.getElementById('cups-value').textContent = res.cups;
+            document.getElementById('best-offer-name').textContent = res.offer.name;
+            document.getElementById('best-offer-desc').textContent = res.offer.description;
+            
+            const savingsEl = document.getElementById('savings-estimate');
+            if (res.isNegativeSavings) {
+                savingsEl.textContent = "0,00 €";
+                savingsEl.classList.remove('text-green-500');
+                savingsEl.classList.add(activeBrand.PRIMARY_TEXT);
+            } else {
+                savingsEl.textContent = eur(res.savings);
+                savingsEl.classList.add('text-green-500');
+            }
+
+            // Factura Actual
+            document.getElementById('old-period-cost-display').textContent = eur(res.importe_total);
+            document.getElementById('old-annual-cost-display').textContent = eur(res.originalBillAnnual) + "/año";
+            
+            // Nueva Factura
+            document.getElementById('new-monthly-cost-display').textContent = eur(res.totalAnnual / 12) + "/mes";
+            document.getElementById('new-annual-cost-display').textContent = eur(res.totalAnnual) + "/año";
+
+            // Desglose
+            let html = `<div class="bg-white p-4 text-xs font-mono text-slate-600">`;
+            
+            html += `<div class="mb-2 font-bold text-slate-800 border-b">POTENCIA (${res.powerCosts.length} Periodos)</div>`;
+            res.powerCosts.forEach(p => {
+                html += `<div class="flex justify-between"><span>P${p.period} (${num(p.kw)}kW)</span><span>${num(p.cost)}€</span></div>`;
+            });
+            html += `<div class="text-right font-bold border-t mt-1 mb-3">Subtotal: ${num(res.subPower)}€</div>`;
+
+            html += `<div class="mb-2 font-bold text-slate-800 border-b">ENERGÍA (${res.energyCosts.length} Periodos)</div>`;
+            res.energyCosts.forEach(e => {
+                if(e.kwh > 0) html += `<div class="flex justify-between"><span>P${e.period} (${num(e.kwh,0)}kWh)</span><span>${num(e.cost)}€</span></div>`;
+            });
+            
+            if(res.discountAmount > 0) {
+                html += `<div class="flex justify-between text-red-500 font-bold mt-1"><span>Descuento (${num(res.discountRate*100,0)}%)</span><span>-${num(res.discountAmount)}€</span></div>`;
+            }
+            html += `<div class="text-right font-bold border-t mt-1 mb-3">Subtotal Energía: ${num(res.subEnergyNet)}€</div>`;
+
+            html += `<div class="flex justify-between font-bold border-t pt-2"><span>TOTAL PERIODO</span><span>${eur(res.totalPeriod)}</span></div>`;
+            html += `</div>`;
+            
+            document.getElementById('details-container').innerHTML = `
+                <div id="details-container" class="hidden space-y-6">
+                    <h3 id="extracted-data-header" class="text-lg font-bold text-slate-800 border-l-4 ${activeBrand.BORDER.replace('border-', 'border-')} pl-3">Datos Extraídos</h3>
+                    <div id="user-consumption-details" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-sm"></div>
+                    <h3 class="text-lg font-bold text-slate-800 border-l-4 border-green-500 pl-3">Cálculo Oficial</h3>
+                    <div id="cost-breakdown" class="bg-white p-0 rounded-xl border border-slate-200 shadow-sm overflow-hidden text-sm">
+                        ${html}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- MANUAL INPUT ---
+
+        function handleManualInput() {
+            const getVal = id => parseFloat(document.getElementById(id).value.replace(',','.')) || 0;
+            
+            const config = TARIFF_CONFIG[currentTariffType];
+            
+            const data = {
+                cups: document.getElementById('input-cups').value || 'MANUAL',
+                dias_facturados: parseInt(document.getElementById('input-billing-days').value) || 30,
+                importe_total: getVal('input-total-bill'),
+                potencia_p1_kw: getVal('input-p1-kw'),
+                potencia_p2_kw: getVal('input-p2-kw'),
+                consumo_punta: getVal('input-e1-kwh'), // Mapping estándar para 2.0TD
+                consumo_llano: getVal('input-e2-kwh'),
+                consumo_valle: getVal('input-e3-kwh'),
+                fechas: 'Entrada Manual'
+            };
+
+            // Mapeo dinámico para 3.0TD/6.1TD
+            // Normalizamos la data para que el calculador funcione
+            for(let i=1; i<=6; i++) {
+                data[`potencia_p${i}_kw`] = getVal(`input-p${i}-kw`);
+                data[`consumo_p${i}`] = getVal(`input-e${i}-kwh`);
+            }
+            
+            // Validación básica
+            if (data.importe_total <= 0) return window.showErrorModal("Introduce el total de la factura.");
+            
+            document.getElementById('manual-input-modal').classList.add('hidden');
+            document.getElementById('manual-input-modal').classList.remove('flex');
+            
+            compareOffers(data);
+        }
+
+        // --- COPIA HTML (Simplified for brevity) ---
+        // Se usa la misma lógica de generar tabla HTML pero iterando los periodos dinámicos
+        document.getElementById('execute-send-offer-btn').addEventListener('click', () => {
+            const res = lastComparisonResult;
+            if(!res) return;
+            
+            // Generar tabla HTML simple
+            let html = `<table style="font-family:sans-serif; border-collapse:collapse; width:100%; max-width:600px; border:1px solid #ccc;">`;
+            html += `<tr style="background:#0c4a6e; color:white;"><td colspan="2" style="padding:10px; text-align:center; font-weight:bold;">${res.offer.name} (${currentTariffType})</td></tr>`;
+            
+            // Precios Energía
+            res.energyCosts.forEach(e => {
+                html += `<tr><td style="padding:5px; border-bottom:1px solid #eee;">P${e.period} Energía (€/kWh)</td><td style="padding:5px; text-align:right; font-weight:bold;">${numPrice(e.price)}</td></tr>`;
+            });
+            // Precios Potencia
+            res.powerCosts.forEach(p => {
+                html += `<tr><td style="padding:5px; border-bottom:1px solid #eee;">P${p.period} Potencia (€/kW/año)</td><td style="padding:5px; text-align:right; font-weight:bold;">${(p.priceDay*365).toFixed(2)}</td></tr>`;
+            });
+            
+            html += `<tr style="background:#f0f9ff;"><td style="padding:10px; font-weight:bold;">AHORRO ESTIMADO</td><td style="padding:10px; text-align:right; font-weight:bold; color:green; font-size:18px;">${res.savings.toFixed(2)} €</td></tr>`;
+            html += `</table>`;
+
+            // Copiar
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            temp.contentEditable = true;
+            document.body.appendChild(temp);
+            const range = document.createRange();
+            range.selectNodeContents(temp);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            
+            window.showMessageModal("Oferta copiada al portapapeles.");
+            document.getElementById('send-offer-modal').classList.add('hidden');
+            document.getElementById('send-offer-modal').classList.remove('flex');
+        });
+
+        function numPrice(n) { return new Intl.NumberFormat('es-ES', {minimumFractionDigits:6}).format(n); }
+
+        // --- UTILS UI ---
+        function applyBrandStyles(brand) {
+            activeBrand = brand;
+            const isDrk = brand.NAME.includes('DRK');
+            
+            // Define color classes based on brand
+            const accent500 = isDrk ? 'drk-500' : 'powercup-500';
+            const bg50 = isDrk ? 'bg-drk-50' : 'bg-powercup-50';
+            const text800 = isDrk ? 'text-drk-800' : 'text-powercup-800';
+            const borderColor = isDrk ? 'border-drk-500' : 'border-powercup-500';
+            
+            // --- CORE BRAND SWITCH (BODY CLASS) ---
+            document.body.classList.toggle('powercup-active', !isDrk);
+            document.body.classList.toggle('drk-active', isDrk);
+
+
+            // 1. NAVBAR
+            const logoEl = document.querySelector('#navbar h1');
+            logoEl.childNodes.forEach(node => { 
+                if (node.nodeType === 3) node.textContent = brand.NAME + ' ';
+            });
+            let accentSpan = document.getElementById('app-logo-accent');
+            accentSpan.className = `text-${brand.ACCENT}`;
+            accentSpan.textContent = brand.ACCENT_TEXT;
+
+            document.getElementById('navbar').className = `w-full ${brand.NAV_BG} text-white p-4 shadow-md sticky top-0 z-50`;
+            document.getElementById('app-subtitle').className = `text-xs ${brand.NAV_SUBTITLE_BG} px-2 py-1 rounded ${brand.NAV_SUBTITLE_TEXT}`;
+
+            // 2. LANDING PAGE CONTENT
+            document.getElementById('landing-title').textContent = brand.TITLE; // Set main title
+            document.getElementById('landing-icon-bg').className = `w-16 h-16 ${bg50} rounded-full flex items-center justify-center mx-auto mb-4 ${text800} shadow-inner`;
+            document.getElementById('landing-icon-bg').innerHTML = brand.LOGO_SVG; // Set main logo
+
+            // 3. INITIAL VIEW ICON (Used when user proceeds to scan view)
+            document.getElementById('initial-icon-bg').className = `w-16 h-16 ${bg50} rounded-full flex items-center justify-center mx-auto mb-4 ${text800} shadow-inner`;
+            document.getElementById('initial-icon-bg').innerHTML = brand.LOGO_SVG;
+            
+            // 4. MAIN ACTION BUTTONS (Scanner/Input View)
+            const primaryButtonClass = `w-full bg-gradient-to-r ${brand.PRIMARY_BUTTON} text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-3 mb-3`;
+            document.getElementById('start-scan-btn').className = primaryButtonClass;
+
+            const secondaryButtonBase = `w-full ${bg50} ${isDrk ? 'hover:bg-drk-100' : 'hover:bg-powercup-100'} ${text800} font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3`;
+            document.getElementById('upload-menu-btn').className = secondaryButtonBase + ' mb-3';
+            document.getElementById('manual-input-btn').className = secondaryButtonBase + ' mt-3'; 
+
+            // 5. Result Header Gradient & Card Borders
+            document.getElementById('result-header').className = `bg-gradient-to-r ${brand.PRIMARY_BG_GRADIENT} p-6 text-white text-center relative overflow-hidden`;
+            document.getElementById('initial-card').className = `bg-white p-6 rounded-3xl shadow-xl text-center border-t-4 ${borderColor} relative`;
+            document.getElementById('landing-card').className = `bg-white p-6 md:p-8 rounded-3xl shadow-2xl w-full border-t-4 ${borderColor}`;
+
+            // 6. TARIFF BADGE COLOR (In Initial View)
+            const tariffBadge = document.getElementById('tariff-badge');
+            // Remove previous color class (either bg-drk-500 or bg-powercup-500)
+            tariffBadge.classList.remove('bg-drk-500', 'bg-powercup-500'); 
+            // Add the current brand's accent color
+            tariffBadge.classList.add(`bg-${accent500}`);
+
+            // 7. Landing Page Tariff Buttons (Dynamic Icon Colors - Fix 2 & 3)
+            document.querySelectorAll('.tariff-select-btn').forEach(btn => {
+                const iconWrapper = btn.querySelector('.icon-wrapper');
+                const arrowIcon = btn.querySelector('.arrow-icon');
+                
+                // Reset classes before applying new ones (to prevent color bleed)
+                // Remove all color/hover classes
+                iconWrapper.className = iconWrapper.className.split(' ').filter(c => !c.startsWith('bg-') && !c.startsWith('text-') && !c.startsWith('group-hover')).join(' ');
+                arrowIcon.classList.remove('group-hover:text-drk-500', 'group-hover:text-powercup-500');
+
+                // Apply new icon/arrow colors based on active brand
+                if (isDrk) {
+                    iconWrapper.classList.add('bg-drk-50', 'group-hover:bg-drk-100', 'text-drk-600');
+                    arrowIcon.classList.add('group-hover:text-drk-500');
+                } else {
+                    iconWrapper.classList.add('bg-powercup-50', 'group-hover:bg-powercup-100', 'text-powercup-600');
+                    arrowIcon.classList.add('group-hover:text-powercup-500');
+                }
+            });
+        }
+
+        // --- SCANNER ---
+        function startScanner() {
+            if (currentTariffs.length === 0) return window.showErrorModal("Cargando tarifas...");
+            document.getElementById('initial-view').classList.add('hidden');
+            document.getElementById('scanner-view').classList.remove('hidden');
+            document.getElementById('scanner-view').classList.add('flex');
+            
+            scannerRunning = true;
+            video = document.createElement('video');
+            video.autoplay = true; video.playsInline = true;
+            canvas = document.createElement('canvas'); canvasCtx = canvas.getContext('2d');
+            document.getElementById('interactive').innerHTML = '';
+            document.getElementById('interactive').appendChild(video);
+            
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => {
+                stream = s; video.srcObject = s;
+                video.onloadedmetadata = () => { video.play(); scanLoop(); };
+            }).catch(e => { console.error(e); stopScanner(); resetToLanding(); window.showErrorModal("Error cámara"); });
+        }
+
+        function scanLoop() {
+            if (!scannerRunning || !video) return;
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                canvasCtx.drawImage(video, 0, 0);
+                const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                if (code) {
+                    stopScanner();
+                    handleQRRead(code.data);
+                } else requestAnimationFrame(scanLoop);
+            } else requestAnimationFrame(scanLoop);
+        }
+
+        function stopScanner() {
+            scannerRunning = false;
+            if(stream) stream.getTracks().forEach(t=>t.stop());
+        }
+
+        function handleQRRead(raw) {
+            // Nota: El QR CNMC estándar suele tener solo P1,P2 y E1,E2,E3.
+            // Si leemos un QR en modo 3.0TD, faltarán datos.
+            // Para este ejemplo, mapeamos lo que hay.
+            const p = {};
+            raw.split('&').forEach(part => { const [k,v] = part.split('='); p[k]=decodeURIComponent(v||'').replace(',','.'); });
+            
+            // Redirigir lógica al input manual rellenando lo posible
+            document.getElementById('input-cups').value = p.cups || '';
+            document.getElementById('input-total-bill').value = p.imp || '';
+            // Rellenar P1-P2 y E1-E3
+            document.getElementById('input-p1-kw').value = p.pP1 || '';
+            document.getElementById('input-p2-kw').value = p.pP2 || '';
+            document.getElementById('input-e1-kwh').value = p.cfP1 || '';
+            document.getElementById('input-e2-kwh').value = p.cfP2 || '';
+            document.getElementById('input-e3-kwh').value = p.cfP3 || '';
+            
+            if (currentTariffType !== '2.0TD') {
+                window.showMessageModal("QR leído parcialmente. Para tarifas 3.0/6.1TD, por favor complete los periodos P3-P6 manualmente.");
+            }
+            
+            document.getElementById('scanner-view').classList.add('hidden');
+            document.getElementById('manual-input-modal').classList.remove('hidden');
+            document.getElementById('manual-input-modal').classList.add('flex');
+        }
+
+        // --- INIT ---
+        
+        // Listeners básicos
+        document.getElementById('manual-input-btn').onclick = () => {
+            document.getElementById('manual-input-modal').classList.remove('hidden');
+            document.getElementById('manual-input-modal').classList.add('flex');
+        };
+        document.getElementById('execute-manual-input-btn').onclick = handleManualInput;
+        document.getElementById('stop-scan-btn').onclick = resetToLanding;
+        document.getElementById('start-scan-btn').onclick = startScanner;
+        
+        document.getElementById('upload-menu-btn').onclick = () => {
+             document.getElementById('qr-options-modal').classList.remove('hidden');
+             document.getElementById('qr-options-modal').classList.add('flex');
+        };
+        document.getElementById('send-offer-btn').onclick = () => {
+             document.getElementById('send-offer-modal').classList.remove('hidden');
+             document.getElementById('send-offer-modal').classList.add('flex');
+        };
+
+        // Modals
+        window.showErrorModal = (msg) => {
+            document.getElementById('error-message').textContent = msg;
+            document.getElementById('error-modal').classList.remove('hidden');
+            document.getElementById('error-modal').classList.add('flex');
+        };
+        window.showMessageModal = window.showErrorModal; // Reuse for simplicity
+        window.hideErrorModal = () => {
+            document.getElementById('error-modal').classList.add('hidden');
+            document.getElementById('error-modal').classList.remove('flex');
+        };
+
+        // Selectores de modo (Lógica de color mejorada y cambio de marca)
+        document.querySelectorAll('input[name="comparison_mode"]').forEach(r => {
+            // Aplicar estilos iniciales de hover a los no seleccionados
+            const label = r.closest('label');
+            const isPowerCup = r.value === 'overall_best';
+            
+            if (isPowerCup) {
+                label.classList.add('hover:bg-powercup-100', 'hover:border-powercup-400');
+                label.classList.remove('hover:bg-drk-100', 'hover:border-drk-400');
+            } else {
+                label.classList.add('hover:bg-drk-100', 'hover:border-drk-400');
+                label.classList.remove('hover:bg-powercup-100', 'hover:border-powercup-400');
+            }
+
+
+            r.addEventListener('change', (e) => {
+                comparisonMode = e.target.value;
+                
+                // 1. Determinar Marca Activa y Aplicar Estilos a toda la APP
+                const brandToApply = e.target.value === 'overall_best' ? BRANDS.POWER_CUP : BRANDS.DRK;
+                activeBrand = brandToApply; 
+                applyBrandStyles(activeBrand); 
+                
+                // 2. Resetear todos los selectores a su estado base (Inactivo)
+                document.querySelectorAll('.mode-selector').forEach(l => {
+                    const input = l.querySelector('input[name="comparison_mode"]');
+                    const isPc = input.value === 'overall_best';
+
+                    // Remover clases activas
+                    l.classList.remove('border-drk-500', 'bg-drk-500', 'text-white', 'hover:bg-drk-400');
+                    l.classList.remove('border-powercup-500', 'bg-powercup-500', 'text-white', 'hover:bg-powercup-400');
+                    
+                    // Añadir clases base (blanco/gris)
+                    l.classList.add('text-slate-600', 'bg-white');
+
+                    // Re-aplicar el tinte de hover correcto (DRK vs Power Cup)
+                    if (isPc) {
+                        l.classList.remove('hover:bg-drk-100', 'hover:border-drk-400');
+                        l.classList.add('hover:bg-powercup-100', 'hover:border-powercup-400');
+                    } else {
+                        l.classList.remove('hover:bg-powercup-100', 'hover:border-powercup-400');
+                        l.classList.add('hover:bg-drk-100', 'hover:border-drk-400');
+                    }
+                    
+                    l.querySelector('.checkmark-icon').classList.add('hidden');
+                });
+                
+                // 3. Aplicar Estado Activo al botón seleccionado
+                const selectedLabel = e.target.closest('label');
+                const colorClass = isPowerCup ? 'powercup' : 'drk'; 
+                
+                // Remover clases de inactivo (blanco/gris/tinte)
+                selectedLabel.classList.remove('text-slate-600', 'bg-white');
+                selectedLabel.classList.remove(`hover:bg-${colorClass}-100`, `hover:border-${colorClass}-400`);
+
+                // Establecer estado Activo (Color 500)
+                selectedLabel.classList.add(`border-${colorClass}-500`, `bg-${colorClass}-500`, 'text-white');
+                
+                // Establecer Hover Activo (Color 400 - Menos oscuro)
+                selectedLabel.classList.add(`hover:bg-${colorClass}-400`);
+                
+                selectedLabel.querySelector('.checkmark-icon').classList.remove('hidden');
+            });
+
+            // Disparar evento de cambio para establecer los colores correctos al cargar
+            // Nota: Esto se debe hacer después de que la función de applyBrandStyles y los listeners estén definidos.
+        });
+
+        // Inicializar el branding al cargar la página y activar el selector correcto.
+        document.addEventListener('DOMContentLoaded', () => {
+             const initialMode = document.querySelector('input[name="comparison_mode"]:checked').value;
+             // Encuentra el input checkeado y dispara el evento 'change' para ejecutar toda la lógica de branding.
+             document.querySelector('input[name="comparison_mode"]:checked').dispatchEvent(new Event('change'));
+             console.log("App iniciada. Esperando selección de tarifa.");
+        });
+    </script>
+</body>
+</html>
