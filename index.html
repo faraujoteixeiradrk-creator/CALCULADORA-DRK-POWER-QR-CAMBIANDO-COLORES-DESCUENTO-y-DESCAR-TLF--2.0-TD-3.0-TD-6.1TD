@@ -1,4 +1,4 @@
-
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -354,6 +354,11 @@
                 </button>
                 <button onclick="document.getElementById('details-container').classList.toggle('hidden')" class="text-center text-drk-800 font-bold text-sm hover:underline flex items-center justify-center gap-1" id="details-toggle-btn">Ver desglose detallado</button>
             </div>
+            
+            <!-- CONTENEDOR DE DESGLOSE DE DETALLES (MOVIDO FUERA DE LA GRILLA DE BOTONES) -->
+            <div id="details-container" class="hidden space-y-6">
+                <!-- Este contenido será llenado por renderResultsUI -->
+            </div>
 
             <div class="mt-8">
                 <button onclick="resetToLanding()" class="w-full bg-white border-2 border-slate-200 hover:border-drk-500 text-slate-600 hover:text-drk-800 font-bold py-4 rounded-xl transition flex items-center justify-center gap-2">
@@ -523,6 +528,26 @@
         let scannerRunning = false;
         let stream = null, video = null, canvas = null, canvasCtx = null, animationFrameId = null;
 
+        // --- FUNCIONES DE LIMPIEZA ---
+
+        /**
+         * Limpia todos los campos de entrada manual (CUPS, días, P1-P6, E1-E6).
+         */
+        function clearManualInputs() {
+            // Clear General Data
+            document.getElementById('input-cups').value = '';
+            document.getElementById('input-billing-days').value = '';
+            document.getElementById('input-total-bill').value = '';
+
+            // Clear all P/E inputs (up to P6/E6)
+            for (let i = 1; i <= 6; i++) {
+                const pInput = document.getElementById(`input-p${i}-kw`);
+                if (pInput) pInput.value = '';
+                const eInput = document.getElementById(`input-e${i}-kwh`);
+                if (eInput) eInput.value = '';
+            }
+        }
+
         // --- NAVEGACIÓN Y ESTADO ---
 
         function resetToLanding() {
@@ -552,6 +577,9 @@
             currentTariffType = type;
             const config = TARIFF_CONFIG[type];
             const qrButtonsContainer = document.getElementById('qr-buttons-container');
+
+            // *** FIX 2: Limpiar inputs al cambiar de tarifa para evitar contaminación de datos. ***
+            clearManualInputs(); 
 
             // 1. Ocultar/Mostrar botones QR
             if (config.requiresQR) {
@@ -818,7 +846,11 @@
         function renderResultsUI(res) {
             const eur = n => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
             const num = (n, d=2) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
-            
+            // Formato de precio con 6 decimales para la fórmula
+            const numPriceFormula = (n) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 6, maximumFractionDigits: 6 }).format(n);
+            // Cálculo del consumo total para visualización (suma de los consumos individuales)
+            const totalConsumoKwh = res.energyCosts.reduce((sum, e) => sum + e.kwh, 0);
+
             document.getElementById('cups-value').textContent = res.cups;
             document.getElementById('best-offer-name').textContent = res.offer.name;
             document.getElementById('best-offer-desc').textContent = res.offer.description;
@@ -841,36 +873,109 @@
             document.getElementById('new-monthly-cost-display').textContent = eur(res.totalAnnual / 12) + "/mes";
             document.getElementById('new-annual-cost-display').textContent = eur(res.totalAnnual) + "/año";
 
-            // Desglose
-            let html = `<div class="bg-white p-4 text-xs font-mono text-slate-600">`;
-            
-            html += `<div class="mb-2 font-bold text-slate-800 border-b">POTENCIA (${res.powerCosts.length} Periodos)</div>`;
-            res.powerCosts.forEach(p => {
-                html += `<div class="flex justify-between"><span>P${p.period} (${num(p.kw)}kW)</span><span>${num(p.cost)}€</span></div>`;
-            });
-            html += `<div class="text-right font-bold border-t mt-1 mb-3">Subtotal: ${num(res.subPower)}€</div>`;
-
-            html += `<div class="mb-2 font-bold text-slate-800 border-b">ENERGÍA (${res.energyCosts.length} Periodos)</div>`;
+            // --- BUILD USER CONSUMPTION DETAILS HTML (DATOS EXTRAÍDOS) ---
+            let energyRows = '';
             res.energyCosts.forEach(e => {
-                if(e.kwh > 0) html += `<div class="flex justify-between"><span>P${e.period} (${num(e.kwh,0)}kWh)</span><span>${num(e.cost)}€</span></div>`;
+                let label = `E${e.period}`;
+                if (currentTariffType === '2.0TD') {
+                    if (e.period === 1) label += ' (Punta)';
+                    if (e.period === 2) label += ' (Llano)';
+                    if (e.period === 3) label += ' (Valle)';
+                }
+                if(e.kwh > 0 || currentTariffType === '2.0TD') { // Mostrar E1-E3 para 2.0TD aunque sean 0, o cualquier > 0
+                    energyRows += `<div class="flex justify-between text-xs mb-1"><span>${label}</span><span class="font-mono">${num(e.kwh, 0)} kWh</span></div>`;
+                }
             });
-            
-            if(res.discountAmount > 0) {
-                html += `<div class="flex justify-between text-red-500 font-bold mt-1"><span>Descuento (${num(res.discountRate*100,0)}%)</span><span>-${num(res.discountAmount)}€</span></div>`;
-            }
-            html += `<div class="text-right font-bold border-t mt-1 mb-3">Subtotal Energía: ${num(res.subEnergyNet)}€</div>`;
 
-            html += `<div class="flex justify-between font-bold border-t pt-2"><span>TOTAL PERIODO</span><span>${eur(res.totalPeriod)}</span></div>`;
-            html += `</div>`;
-            
-            document.getElementById('details-container').innerHTML = `
-                <div id="details-container" class="hidden space-y-6">
-                    <h3 id="extracted-data-header" class="text-lg font-bold text-slate-800 border-l-4 ${activeBrand.BORDER.replace('border-', 'border-')} pl-3">Datos Extraídos</h3>
-                    <div id="user-consumption-details" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-sm"></div>
-                    <h3 class="text-lg font-bold text-slate-800 border-l-4 border-green-500 pl-3">Cálculo Oficial</h3>
-                    <div id="cost-breakdown" class="bg-white p-0 rounded-xl border border-slate-200 shadow-sm overflow-hidden text-sm">
-                        ${html}
+            let powerRows = '';
+            res.powerCosts.forEach(p => {
+                if(p.kw > 0 || currentTariffType === '2.0TD') { // Mostrar P1-P2 para 2.0TD, o cualquier > 0
+                    powerRows += `<div class="flex justify-between text-xs mb-1"><span>P${p.period}</span><span class="font-mono">${num(p.kw, 2)} kW</span></div>`;
+                }
+            });
+
+            const consumptionHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div><p class="text-xs text-slate-500">Periodo</p><p class="font-bold text-slate-700">${res.dias_facturados} días</p></div>
+                    <div><p class="text-xs text-slate-500">Fechas</p><p class="font-bold text-slate-700 text-xs">${res.fechas}</p></div>
+                    <div class="col-span-2 border-t pt-2 mt-2">
+                        <p class="font-bold ${activeBrand.PRIMARY_TEXT} mb-2">Consumo por Periodo (kWh)</p>
+                        ${energyRows}
+                        <div class="flex justify-between font-bold ${activeBrand.PRIMARY_TEXT} mt-1 border-t pt-1"><span>Total Consumo</span><span>${num(totalConsumoKwh, 0)} kWh</span></div> 
                     </div>
+                    <div class="col-span-2">
+                        <p class="font-bold ${activeBrand.PRIMARY_TEXT} mb-2">Potencia Contratada (kW)</p>
+                        ${powerRows}
+                    </div>
+                </div>
+            `;
+
+            // --- BUILD OFFICIAL CALCULATION HTML (CÁLCULO OFICIAL) ---
+            let breakdownHTML = `
+                <div class="bg-white p-6 font-mono text-xs md:text-sm text-slate-600 leading-relaxed">
+                    <div class="text-center border-b-2 border-dashed border-slate-300 pb-4 mb-4">
+                        <h4 class="font-bold text-lg text-slate-800 uppercase">${res.offer.name}</h4>
+                        <p>Simulación ${res.dias_facturados} días</p>
+                    </div>
+                    
+                    <!-- POTENCIA -->
+                    <div class="mb-4">
+                        <p class="font-bold text-slate-800 mb-1">POTENCIA (€/kW Día)</p>
+            `;
+            
+            res.powerCosts.forEach(p => {
+                // Solo incluir si la potencia contratada es > 0 o si estamos en 2.0TD (para mostrar P1/P2)
+                if (p.kw > 0 || currentTariffType === '2.0TD') {
+                    breakdownHTML += `<div class="flex justify-between"><span>P${p.period} (${num(p.kw, 2)} kW x ${numPriceFormula(p.priceDay)} €/día)</span><span>${num(p.cost, 2)} €</span></div>`;
+                }
+            });
+            breakdownHTML += `<div class="flex justify-between font-bold ${activeBrand.SECONDARY_TEXT} border-t mt-1 pt-1"><span>Subtotal Potencia</span><span>${num(res.subPower, 2)} €</span></div></div>`;
+
+            // ENERGÍA
+            breakdownHTML += `<div class="mb-4"><p class="font-bold text-slate-800 mb-1">ENERGÍA (€/kWh)</p>`;
+            res.energyCosts.forEach(e => {
+                // Solo incluir si hay consumo registrado en el periodo
+                if (e.kwh > 0) {
+                    breakdownHTML += `<div class="flex justify-between"><span>P${e.period} (${num(e.kwh, 0)} kWh x ${numPriceFormula(e.price)} €/kWh)</span><span>${num(e.cost, 2)} €</span></div>`;
+                }
+            });
+            breakdownHTML += `<div class="flex justify-between font-bold ${activeBrand.SECONDARY_TEXT} border-t mt-1 pt-1"><span>Subtotal Energía (Bruto)</span><span>${num(res.subEnergy, 2)} €</span></div>`;
+
+            if (res.discountAmount > 0) {
+                breakdownHTML += `
+                    <div class="flex justify-between font-bold text-cta-red-500 mt-2">
+                        <span>Descuento Aplicado (${num(res.discountRate * 100, 0)}%)</span>
+                        <span>-${num(res.discountAmount, 2)} €</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-slate-800 border-t border-dashed mt-1 pt-1">
+                        <span>Subtotal Energía (Neto)</span>
+                        <span>${num(res.subEnergyNet, 2)} €</span>
+                    </div>
+                `;
+            }
+            breakdownHTML += `</div>`;
+
+            // TOTALES
+            breakdownHTML += `
+                <div class="border-t border-slate-200 pt-2 mb-2">
+                    <div class="flex justify-between font-bold text-slate-800"><span>SUBTOTAL BASE (P+E)</span><span>${num(res.subBase, 2)} €</span></div>
+                    <div class="flex justify-between"><span>Imp. Eléc. (${num(res.ieRate * 100, 3)}%)</span><span>${num(res.costIE, 2)} €</span></div>
+                    <div class="flex justify-between font-bold text-lg border-t mt-1 pt-1"><span>BASE IMPONIBLE</span><span>${num(res.baseImp, 2)} €</span></div>
+                    <div class="flex justify-between"><span>IVA (21%)</span><span>${num(res.costIVA, 2)} €</span></div>
+                </div>
+                <div class="${activeBrand.NAV_BG} text-white p-3 rounded-lg flex justify-between items-center text-md font-bold mb-1 mt-4"><span>TOTAL FACTURA</span><span>${eur(res.totalPeriod)}</span></div>
+                <div class="text-center mt-2 ${activeBrand.PRIMARY_TEXT} font-bold">Total Anual Estimado: ${eur(res.totalAnnual)}</div>
+                </div>
+            `;
+            
+            const detailsContainer = document.getElementById('details-container');
+
+            detailsContainer.innerHTML = `
+                <h3 id="extracted-data-header" class="text-lg font-bold text-slate-800 border-l-4 ${activeBrand.BORDER.replace('border-', 'border-')} pl-3">Datos Extraídos</h3>
+                <div id="user-consumption-details" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-sm">${consumptionHTML}</div>
+                <h3 class="text-lg font-bold text-slate-800 border-l-4 border-green-500 pl-3">Cálculo Oficial</h3>
+                <div id="cost-breakdown" class="bg-white p-0 rounded-xl border border-slate-200 shadow-sm overflow-hidden text-sm">
+                    ${breakdownHTML}
                 </div>
             `;
         }
@@ -908,6 +1013,236 @@
             document.getElementById('manual-input-modal').classList.remove('flex');
             
             compareOffers(data);
+        }
+
+        // --- MANEJO DE FECHAS ---
+
+        /**
+         * Calcula el número de días entre dos fechas DD/MM/YYYY, incluyendo la fecha de fin.
+         * @param {string} startDateStr - Fecha de inicio (DD/MM/YYYY).
+         * @param {string} endDateStr - Fecha de fin (DD/MM/YYYY).
+         * @returns {number} Número de días facturados.
+         */
+        function calculateDays(startDateStr, endDateStr) {
+            try {
+                // Parseamos D/M/Y
+                const [d1, m1, y1] = startDateStr.split('/').map(Number);
+                const [d2, m2, y2] = endDateStr.split('/').map(Number);
+
+                // Meses son 0-indexed en JS Date (m-1)
+                const date1 = new Date(y1, m1 - 1, d1);
+                const date2 = new Date(y2, m2 - 1, d2);
+                
+                if (isNaN(date1.getTime()) || isNaN(date2.getTime())) {
+                    console.error("Fechas inválidas para el cálculo de días:", startDateStr, endDateStr);
+                    return 30; // Fallback
+                }
+
+                const ONE_DAY_MS = 1000 * 60 * 60 * 24;
+                // Diferencia en días + 1 día (para incluir el día final de facturación)
+                const diffDays = (date2.getTime() - date1.getTime()) / ONE_DAY_MS;
+                const days = Math.round(diffDays) + 1;
+                
+                return days;
+            } catch (e) {
+                console.error("Error al calcular días a partir de fechas:", e);
+                return 30; // Fallback
+            }
+        }
+
+
+        // --- MANEJO DE IMÁGENES QR ---
+
+        // Helper to convert YYYY-MM-DD to DD/MM/YYYY
+        const formatIsoToDmy = (iso) => {
+            if (!iso) return null;
+            const parts = iso.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`; // D/M/Y
+            return null;
+        };
+        
+        // Función para procesar una imagen y decodificar el QR
+        function decodeQRFromImage(imageFileOrBlob) {
+            const img = new Image();
+            const url = URL.createObjectURL(imageFileOrBlob);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                const localCanvas = document.createElement('canvas');
+                const ctx = localCanvas.getContext('2d');
+                localCanvas.width = img.width;
+                localCanvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                try {
+                    const imageData = ctx.getImageData(0, 0, localCanvas.width, localCanvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                    if (code) {
+                        document.getElementById('qr-options-modal').classList.add('hidden');
+                        document.getElementById('qr-options-modal').classList.remove('flex');
+                        handleQRRead(code.data);
+                    } else {
+                        window.showErrorModal("No se pudo detectar un código QR válido en la imagen.");
+                    }
+                } catch (e) {
+                    console.error("Error al procesar la imagen para QR:", e);
+                    window.showErrorModal("Error al procesar la imagen.");
+                }
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                window.showErrorModal("No se pudo cargar la imagen para el escaneo QR.");
+            };
+            img.src = url;
+        }
+
+        // 1. Manejar la selección de archivo (Botón "Subir Imagen")
+        document.getElementById('modal-upload-file-btn').addEventListener('click', () => {
+            document.getElementById('image-file-input').click();
+        });
+
+        document.getElementById('image-file-input').addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                decodeQRFromImage(e.target.files[0]);
+            }
+        });
+
+        // 2. Manejar la acción de pegar (Botón "Pegar Imagen" y Listener en body)
+        document.getElementById('modal-paste-image-btn').addEventListener('click', () => {
+             const pasteCatcher = document.getElementById('paste-catcher');
+             // Para forzar la apertura del portapapeles en algunos navegadores, enfocamos el textarea
+             pasteCatcher.value = '';
+             pasteCatcher.focus();
+             window.showMessageModal("Presione CTRL+V (o Comando+V) ahora para pegar la imagen.", "Pegar Imagen");
+        });
+
+        document.getElementById('paste-catcher').addEventListener('paste', (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            let imageFound = false;
+            
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    if (blob) {
+                        decodeQRFromImage(blob);
+                        imageFound = true;
+                        e.preventDefault(); // Detener el pegado predeterminado
+                        break;
+                    }
+                }
+            }
+            if (!imageFound) {
+                 window.showErrorModal("El portapapeles no contenía una imagen.");
+            }
+        });
+
+
+        function handleQRRead(raw) {
+            const p = {};
+            // Parseo robusto: divide por '&' y luego usa el primer '=' como separador clave/valor.
+            raw.split('&').forEach(part => { 
+                let [key, ...rest] = part.split('=');
+                let value = rest.join('=');
+                try {
+                    p[key] = decodeURIComponent(value || '').replace(',', '.');
+                } catch (e) {
+                    p[key] = value || '';
+                }
+            });
+            
+            // --- 1. DÍAS DE FACTURACIÓN (Implementación de cálculo) ---
+            let billingDays = 30; // Fallback por defecto
+            let dateRangeStr = "No disponible";
+            let startDateStr = null;
+            let endDateStr = null;
+
+            // Regex para el formato YYYY-MM-DD (en datos QR)
+            const isoDateRegex = /(\d{4}-\d{2}-\d{2})/i;
+            // Regex para el formato DD/MM/YYYY (en la descripción del usuario o si se codificó así)
+            const dmyDateRegex = /(\d{2}\/\d{2}\/\d{4})/i; 
+
+            // Buscar las claves iniF, finF, iniA de forma case-insensitive
+            const iniF_key = Object.keys(p).find(k => k.toLowerCase() === 'inif');
+            const finF_key = Object.keys(p).find(k => k.toLowerCase() === 'finf'); 
+            const iniA_key = Object.keys(p).find(k => k.toLowerCase() === 'inia'); 
+
+            let rawStartDate = iniF_key ? p[iniF_key] : null;
+            // Priorizamos finF, si no, usamos iniA
+            let rawEndDate = finF_key ? p[finF_key] : (iniA_key ? p[iniA_key] : null); 
+            
+            // Try to extract and format Start Date
+            if (rawStartDate) {
+                let match = rawStartDate.match(isoDateRegex);
+                if (match) {
+                    startDateStr = formatIsoToDmy(match[1]); // e.g., "2025-09-28" -> "28/09/2025"
+                } else {
+                    match = rawStartDate.match(dmyDateRegex);
+                    if (match) startDateStr = match[1]; // Use direct DD/MM/YYYY if found
+                }
+            }
+
+            // Try to extract and format End Date
+            if (rawEndDate) {
+                let match = rawEndDate.match(isoDateRegex);
+                if (match) {
+                    endDateStr = formatIsoToDmy(match[1]); // e.g., "2025-10-27" -> "27/10/2025"
+                } else {
+                    match = rawEndDate.match(dmyDateRegex);
+                    if (match) endDateStr = match[1]; // Use direct DD/MM/YYYY if found
+                }
+            }
+            // --- FIN de Extracción mejorada de fechas ---
+
+            if (startDateStr && endDateStr) {
+                billingDays = calculateDays(startDateStr, endDateStr);
+                // Formato solicitado: DD/MM/YYYY - DD/MM/YYYY
+                dateRangeStr = `${startDateStr} - ${endDateStr}`;
+            }
+            // --------------------------------------------------
+
+            // 2. Rellenar los inputs del modal (aunque no se muestre) para posible fallback
+            // NOTA: clearManualInputs() se llama en selectTariffType, asegurando un borrado previo.
+            document.getElementById('input-cups').value = p.cups || '';
+            document.getElementById('input-total-bill').value = p.imp || '';
+            document.getElementById('input-billing-days').value = billingDays; // DÍAS CALCULADOS
+            document.getElementById('input-p1-kw').value = p.pP1 || '';
+            document.getElementById('input-p2-kw').value = p.pP2 || '';
+            document.getElementById('input-e1-kwh').value = p.cfP1 || '';
+            document.getElementById('input-e2-kwh').value = p.cfP2 || '';
+            document.getElementById('input-e3-kwh').value = p.cfP3 || '';
+            
+            // 3. Control de flujo (Bypass del modal para 2.0TD)
+            document.getElementById('scanner-view').classList.add('hidden');
+
+            const directData = {
+                cups: p.cups || 'QR SCAN',
+                dias_facturados: billingDays,
+                importe_total: parseFloat(p.imp || 0),
+                potencia_p1_kw: parseFloat(p.pP1 || 0),
+                potencia_p2_kw: parseFloat(p.pP2 || 0),
+                consumo_punta: parseFloat(p.cfP1 || 0),
+                consumo_llano: parseFloat(p.cfP2 || 0),
+                consumo_valle: parseFloat(p.cfP3 || 0),
+                fechas: dateRangeStr
+            };
+            
+            const is20TD = currentTariffType === '2.0TD';
+
+            if (is20TD && directData.importe_total > 0 && directData.dias_facturados > 0) {
+                // Si es 2.0TD y tenemos datos básicos válidos, calculamos directamente.
+                compareOffers(directData);
+            } else {
+                // Si es 3.0TD/6.1TD O si es 2.0TD pero le faltan datos cruciales (imp/dias), mostramos el modal.
+                let message = is20TD 
+                    ? "QR incompleto. Por favor, revise el importe total y los días facturados."
+                    : "QR leído parcialmente. Por favor, complete los datos faltantes de Potencia (P3-P6) y Energía (E4-E6) para tarifas 3.0TD/6.1TD.";
+                
+                window.showMessageModal(message, is20TD ? "Datos Incompletos QR" : "Completar Datos Manuales");
+                
+                // Mostrar modal con los campos pre-rellenados
+                document.getElementById('manual-input-modal').classList.remove('hidden');
+                document.getElementById('manual-input-modal').classList.add('flex');
+            }
         }
 
         // --- COPIA HTML (Simplified for brevity) ---
@@ -1121,32 +1456,6 @@
             if(stream) stream.getTracks().forEach(t=>t.stop());
         }
 
-        function handleQRRead(raw) {
-            // Nota: El QR CNMC estándar suele tener solo P1,P2 y E1,E2,E3.
-            // Si leemos un QR en modo 3.0TD, faltarán datos.
-            // Para este ejemplo, mapeamos lo que hay.
-            const p = {};
-            raw.split('&').forEach(part => { const [k,v] = part.split('='); p[k]=decodeURIComponent(v||'').replace(',','.'); });
-            
-            // Redirigir lógica al input manual rellenando lo posible
-            document.getElementById('input-cups').value = p.cups || '';
-            document.getElementById('input-total-bill').value = p.imp || '';
-            // Rellenar P1-P2 y E1-E3
-            document.getElementById('input-p1-kw').value = p.pP1 || '';
-            document.getElementById('input-p2-kw').value = p.pP2 || '';
-            document.getElementById('input-e1-kwh').value = p.cfP1 || '';
-            document.getElementById('input-e2-kwh').value = p.cfP2 || '';
-            document.getElementById('input-e3-kwh').value = p.cfP3 || '';
-            
-            if (currentTariffType !== '2.0TD') {
-                window.showMessageModal("QR leído parcialmente. Para tarifas 3.0/6.1TD, por favor complete los periodos P3-P6 manualmente.");
-            }
-            
-            document.getElementById('scanner-view').classList.add('hidden');
-            document.getElementById('manual-input-modal').classList.remove('hidden');
-            document.getElementById('manual-input-modal').classList.add('flex');
-        }
-
         // --- INIT ---
         
         // Listeners básicos
@@ -1181,7 +1490,8 @@
 
 
         // Modals
-        window.showErrorModal = (msg) => {
+        window.showErrorModal = (msg, title="¡Atención!") => {
+            document.getElementById('error-title').textContent = title;
             document.getElementById('error-message').textContent = msg;
             document.getElementById('error-modal').classList.remove('hidden');
             document.getElementById('error-modal').classList.add('flex');
