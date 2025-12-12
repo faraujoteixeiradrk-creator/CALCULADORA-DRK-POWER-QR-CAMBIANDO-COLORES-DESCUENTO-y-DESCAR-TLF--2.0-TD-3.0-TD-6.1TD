@@ -257,7 +257,7 @@
                 </div>
                 
                 <!-- PWA Install QR -->
-                <div id="pwa-install-section" class="mt-8 pt-4 border-t border-slate-200">
+                <div id="pwa-install-section" class="mt-8 pt-4 border-t border-slate-200 text-center">
                     <label class="flex items-center justify-center cursor-pointer mb-3 text-drk-800 hover:text-drk-900 transition">
                         <input type="checkbox" id="qr-toggle-checkbox" class="h-4 w-4 text-drk-500 border-gray-300 rounded focus:ring-drk-500 mr-2">
                         <span class="text-xs font-bold uppercase tracking-wider underline decoration-drk-500 decoration-2 underline-offset-4">Abrir en el Movil</span>
@@ -266,7 +266,7 @@
                         <div id="qr-visual-container" class="mx-auto w-44 h-44 p-2">
                             <div id="qr-code-container"></div>
                         </div>
-                        <p class="text-xs text-slate-500 mt-3 px-4">Haz una foto del QR y ábrelo en tu móvil.</p>
+                        <p class="text-xs text-slate-500 mt-3">Haz una foto del QR y ábrelo en tu móvil.</p>
                     </div>
                 </div>
 
@@ -1202,16 +1202,6 @@
             const clientPhone = document.getElementById('client-phone-input').value.trim() || '[TELÉFONO CLIENTE]';
             const clientEmail = document.getElementById('client-email-input').value.trim() || '[EMAIL CLIENTE]';
             
-            // Estilos de la tabla (INLINE CSS)
-            const tableMain = `width: 600px; max-width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; border: 1px solid #ddd; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden;`;
-            const headerCell = `background-color: ${D_PRIMARY_DARK}; color: white; padding: 15px; text-align: center; border-radius: 8px 8px 0 0;`;
-            const sectionTitle = `background-color: ${D_PRIMARY_MED}; color: white; font-weight: bold; padding: 8px; font-size: 14px; margin-top: 10px;`;
-            const rowLabel = `padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; color: #555; vertical-align: top;`;
-            const rowValue = `padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; font-weight: bold; color: #333; text-align: right; white-space: nowrap; vertical-align: top;`;
-            const savingsBox = `background-color: ${D_ACCENT_CTA}; color: white; font-size: 20px; font-weight: bold; padding: 15px; text-align: center; border-radius: 8px; margin: 15px 0;`;
-            const btnStyle = `display: inline-block; background-color: ${RED_CTA}; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; margin: 20px 0; font-size: 16px;`;
-            const footerStyle = `background-color: ${D_PRIMARY_MED}; height: 5px; margin-top: 10px; border-radius: 0 0 8px 8px;`;
-
             // --- CUERPO DEL EMAIL (Texto plano: para el mailto:) ---
             const LB = '%0A'; // URL-encoded newline
             
@@ -1252,6 +1242,16 @@
             const formalizationRecipients = 'f.araujo@drk.es,r.guerra@drk.es,s.caballero@drk.es'; // Email por defecto
             const formalizationLink = `mailto:${formalizationRecipients}?subject=${encodeURIComponent(subject)}&body=${emailBody}`;
             
+            // Estilos de la tabla (INLINE CSS)
+            const tableMain = `width: 600px; max-width: 100%; border-collapse: collapse; font-family: Arial, sans-serif; border: 1px solid #ddd; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden;`;
+            const headerCell = `background-color: ${D_PRIMARY_DARK}; color: white; padding: 15px; text-align: center; border-radius: 8px 8px 0 0;`;
+            const sectionTitle = `background-color: ${D_PRIMARY_MED}; color: white; font-weight: bold; padding: 8px; font-size: 14px; margin-top: 10px;`;
+            const rowLabel = `padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; color: #555; vertical-align: top;`;
+            const rowValue = `padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; font-weight: bold; color: #333; text-align: right; white-space: nowrap; vertical-align: top;`;
+            const savingsBox = `background-color: ${D_ACCENT_CTA}; color: white; font-size: 20px; font-weight: bold; padding: 15px; text-align: center; border-radius: 8px; margin: 15px 0;`;
+            const btnStyle = `display: inline-block; background-color: ${RED_CTA}; color: white; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; margin: 20px 0; font-size: 16px;`;
+            const footerStyle = `background-color: ${D_PRIMARY_MED}; height: 5px; margin-top: 10px; border-radius: 0 0 8px 8px;`;
+
             // --- PLANTILLA PARA AHORRO NEGATIVO ---
             if (bd.isNegativeSavings) {
                  return `
@@ -1336,7 +1336,7 @@
                     <table width="100%" cellpadding="0" cellspacing="0" style="font-family: Arial, sans-serif; font-size: 12px; table-layout: fixed;">
                         <tr style="background-color: #f5f5f5;">
                             <th style="padding: 5px 8px; text-align: left; color: ${D_PRIMARY_DARK}; width: 60%;">CONCEPTO</th>
-                            <th style="padding: 5px 8px; text-align: right; color: ${D_PRIMARY_DARK}; width: 40%;">${supplierName}</th>
+                            <th style="padding: 5px 8px; text-align: right; color: ${D_PRIMARY_DARK}; width: 40%;">PRECIO ${supplierName}</th>
                         </tr>
                         <tr><td style="padding: 5px 8px; border-bottom: 1px solid #eee;">Potencia P1 (€/kW/día)</td><td style="padding: 5px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; white-space: nowrap;">${numPriceFormula(p1PricePerDay)}</td></tr>
                         <tr><td style="padding: 5px 8px; border-bottom: 1px solid #eee;">Potencia P2 (€/kW/día)</td><td style="padding: 5px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; white-space: nowrap;">${numPriceFormula(p2PricePerDay)}</td></tr>
@@ -1808,7 +1808,8 @@
             document.getElementById('qr-toggle-checkbox').addEventListener('change', (e) => {
                 const wrapper = document.getElementById('qr-content-wrapper');
                 if (e.target.checked) {
-                    generateQRCode(activeBrand);
+                    // Asegurarse de usar el branding actual (ya definido por el selector de modo)
+                    generateQRCode(activeBrand); 
                     wrapper.classList.add('active');
                 } else {
                     wrapper.classList.remove('active');
