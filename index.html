@@ -100,12 +100,38 @@
         /* Estilos QR */
         #qr-content-wrapper { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; overflow: hidden; max-height: 0; opacity: 0; }
         #qr-content-wrapper.active { max-height: 500px; opacity: 1; }
-        #qr-visual-container { position: relative; display: inline-block; background-color: white; border-radius: 1rem; padding: 1rem; border: 4px solid var(--qr-border-color, #0ea5e9); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        #qr-visual-container::before { content: var(--qr-center-text, "DRK"); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: bold; color: #ffffff; background-color: var(--qr-center-bg, #0c4a6e); padding: 8px 12px; border-radius: 6px; z-index: 10; opacity: 0.9; }
+        #qr-visual-container { 
+            position: relative; 
+            display: inline-block; 
+            background-color: white; 
+            border-radius: 1rem; 
+            padding: 1rem; 
+            border: 4px solid var(--qr-border-color, #0ea5e9); 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        /* Texto central del QR */
+        #qr-visual-container::before { 
+            content: var(--qr-center-text, "DRK"); 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            font-size: 20px; /* Tamaño reducido para no cubrir tanto */
+            font-weight: bold; 
+            color: #ffffff; 
+            background-color: var(--qr-center-bg, #0c4a6e); 
+            padding: 4px 8px; /* Padding reducido */
+            border-radius: 6px; 
+            z-index: 10; 
+            opacity: 0.95; 
+            min-width: 60px;
+            text-align: center;
+        }
         
         /* Ocultar elementos dependiendo del tipo de tarifa */
         .hidden-period { display: none; }
     </style>
+    <!-- Librerías QR -->
     <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
@@ -115,7 +141,7 @@
     <div id="navbar" class="w-full bg-drk-900 text-white p-4 shadow-md sticky top-0 z-50 transition-colors duration-300">
         <div class="max-w-lg mx-auto flex justify-between items-center">
             <h1 class="text-xl font-bold tracking-tight cursor-pointer" onclick="resetToLanding()">
-                DRK <span class="text-drk-500" id="app-logo-accent">Energía</span>
+                <span id="app-logo-main">DRK</span> <span class="text-drk-500" id="app-logo-accent">Energía</span>
             </h1>
             <span class="text-xs bg-drk-800 px-2 py-1 rounded text-drk-100" id="app-subtitle">Selector</span>
         </div>
@@ -136,7 +162,7 @@
                         <circle class="drk-ring" cx="55" cy="45" r="35" stroke="#00A859"/>
                     </svg>
                 </div>
-                <h2 id="landing-title" class="text-3xl font-black text-drk-900 mb-2 text-center">DRK Comparador</h2>
+                <h2 id="landing-title" class="text-3xl font-black text-drk-900 mb-2 text-center">DRK COMPARADOR</h2>
                 <p class="text-slate-500 mb-6 text-center">Selecciona el modo de comparación y la tarifa que deseas analizar.</p>
                 
                 <!-- SELECTORES DE MODO (MOVIDO A LA PÁGINA PRINCIPAL) -->
@@ -225,15 +251,19 @@
                 <p class="text-slate-500 mb-6" id="scan-instruction-text">Escanea el código QR o introduce datos manualmente.</p>
                 
                 <!-- Botones Principales -->
-                <button id="start-scan-btn" class="w-full bg-gradient-to-r from-drk-600 to-drk-800 hover:from-drk-700 hover:to-drk-900 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-3 mb-3">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.125 3h3.75a2 2 0 011.664.89l.812 1.22a2 2 0 001.664.89H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    <span>ESCANEAR QR AHORA</span>
-                </button>
-                <input type="file" id="image-file-input" accept="image/*" class="hidden">
-                <button id="upload-menu-btn" class="w-full bg-drk-50 hover:bg-drk-100 text-drk-800 font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1m-4-5l-1-1m0 0l-1-1m0 0l-1-1M12 12v.01"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    <span>OPCIONES QR MANUAL</span>
-                </button>
+                <!-- CONTENEDOR DE BOTONES QR -->
+                <div id="qr-buttons-container">
+                    <button id="start-scan-btn" class="w-full bg-gradient-to-r from-drk-600 to-drk-800 hover:from-drk-700 hover:to-drk-900 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-3 mb-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.125 3h3.75a2 2 0 011.664.89l.812 1.22a2 2 0 001.664.89H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <span>ESCANEAR QR AHORA</span>
+                    </button>
+                    <input type="file" id="image-file-input" accept="image/*" class="hidden">
+                    <button id="upload-menu-btn" class="w-full bg-drk-50 hover:bg-drk-100 text-drk-800 font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1m-4-5l-1-1m0 0l-1-1m0 0l-1-1M12 12v.01"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span>OPCIONES QR MANUAL</span>
+                    </button>
+                </div>
+                <!-- BOTÓN DE DATOS A MANO -->
                 <button id="manual-input-btn" class="w-full bg-drk-50 hover:bg-drk-100 text-drk-800 font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3 mt-3">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                     <span>DATOS A MANO</span>
@@ -248,7 +278,8 @@
                         <span class="text-xs font-bold uppercase tracking-wider underline decoration-drk-500 decoration-2 underline-offset-4">Abrir en el Movil</span>
                     </label>
                     <div id="qr-content-wrapper" class="opacity-0 max-h-0">
-                        <div id="qr-visual-container" class="mx-auto w-44 h-44 p-2" style="--qr-border-color: #0ea5e9; --qr-center-bg: #0c4a6e; --qr-center-text: 'DRK';">
+                        <!-- El contenedor del QR ya no tiene estilos directos, se aplicarán por JS -->
+                        <div id="qr-visual-container" class="mx-auto w-44 h-44 p-2">
                             <div id="qr-code-container"></div>
                         </div>
                         <p class="text-xs text-slate-500 mt-3 px-4">Haz una foto del QR y ábrelo en tu móvil.</p>
@@ -423,44 +454,62 @@
                 periods: 3, // 3 energía, 2 potencia (se estandariza en 3 para lógica array)
                 powerPeriods: 2,
                 label: '2.0 TD',
-                isHighVoltage: false
+                isHighVoltage: false,
+                requiresQR: true // Nuevo flag
             },
             '3.0TD': {
                 sheetId: '18nieA7yMD9Ytc2Z3EnktoNDZokuMrBet_ETGyhNZDuo',
                 periods: 6,
                 powerPeriods: 6,
                 label: '3.0 TD',
-                isHighVoltage: true
+                isHighVoltage: true,
+                requiresQR: false // Nuevo flag
             },
             '6.1TD': {
                 sheetId: '18nieA7yMD9Ytc2Z3EnktoNDZokuMrBet_ETGyhNZDuo', // Misma hoja que 3.0TD según instrucciones
                 periods: 6,
                 powerPeriods: 6,
                 label: '6.1 TD',
-                isHighVoltage: true
+                isHighVoltage: true,
+                requiresQR: false // Nuevo flag
             }
         };
 
         const BRANDS = {
             DRK: {
                 NAME: 'DRK', ACCENT: 'drk-500', ACCENT_TEXT: 'Energía',
-                TITLE: 'DRK Comparador',
-                PRIMARY_BG_GRADIENT: 'from-drk-800 to-drk-600', PRIMARY_BUTTON: 'from-drk-600 to-drk-800 hover:from-drk-700 hover:to-drk-900',
+                TITLE: 'DRK COMPARADOR', // Título en mayúsculas
+                QR_URL: 'https://faraujoteixeiradrk-creator.github.io/CALCULADORA-DRK-POWER-QR-CAMBIANDO-COLORES-DESCUENTO-y-DESCAR-TLF--2.0-TD-3.0-TD-6.1TD/',
+                QR_TEXT: 'DRK',
+                QR_BORDER_COLOR: '#0ea5e9', // drk-500
+                QR_CENTER_BG: '#075985', // drk-800
+                PRIMARY_BG_GRADIENT: 'from-drk-800 to-drk-600', 
+                PRIMARY_BUTTON: 'from-drk-600 to-drk-800 hover:from-drk-700 hover:to-drk-900', // ESCANEAR QR
+                SECONDARY_BUTTON_BG: 'bg-drk-50', // OPCIONES QR MANUAL / DATOS A MANO BG
+                SECONDARY_BUTTON_TEXT: 'text-drk-800', // OPCIONES QR MANUAL / DATOS A MANO Text
                 PRIMARY_TEXT: 'text-drk-800', SECONDARY_BG: 'bg-drk-50', SECONDARY_TEXT: 'text-drk-600', BORDER: 'border-drk-500',
                 LOGO_SVG: `<svg class="w-8 h-8" viewBox="0 0 100 100" fill="none"><style>.drk-ring{fill:none;stroke-width:10;stroke-linecap:round;}</style><circle class="drk-ring" cx="45" cy="45" r="35" stroke="#E50000"/><circle class="drk-ring" cx="55" cy="55" r="35" stroke="#FFCC00"/><circle class="drk-ring" cx="45" cy="55" r="35" stroke="#0079C1"/><circle class="drk-ring" cx="55" cy="45" r="35" stroke="#00A859"/></svg>`,
                 NAV_BG: 'bg-drk-900', NAV_SUBTITLE_BG: 'bg-drk-800', NAV_SUBTITLE_TEXT: 'text-drk-100'
             },
             POWER_CUP: {
                 NAME: 'POWER CUP', ACCENT: 'powercup-500', ACCENT_TEXT: '',
-                TITLE: 'POWER CUP Comparador',
-                PRIMARY_BG_GRADIENT: 'from-powercup-900 to-powercup-800', PRIMARY_BUTTON: 'from-powercup-600 to-powercup-800 hover:from-powercup-500 hover:to-powercup-900',
+                TITLE: 'POWER CUP COMPARADOR', // Título en mayúsculas
+                QR_URL: 'https://faraujoteixeiradrk-creator.github.io/CALCULADORA-DRK-POWER-QR-CAMBIANDO-COLORES-DESCUENTO-y-DESCAR-TLF--2.0-TD-3.0-TD-6.1TD/',
+                QR_TEXT: 'POWER',
+                QR_BORDER_COLOR: '#84cc16', // powercup-500
+                QR_CENTER_BG: '#3f6212', // powercup-800
+                PRIMARY_BG_GRADIENT: 'from-powercup-900 to-powercup-800', 
+                PRIMARY_BUTTON: 'from-powercup-600 to-powercup-800 hover:from-powercup-500 hover:to-powercup-900', // ESCANEAR QR
+                SECONDARY_BUTTON_BG: 'bg-powercup-50', // OPCIONES QR MANUAL / DATOS A MANO BG
+                SECONDARY_BUTTON_TEXT: 'text-powercup-800', // OPCIONES QR MANUAL / DATOS A MANO Text
                 PRIMARY_TEXT: 'text-powercup-800', SECONDARY_BG: 'bg-powercup-50', SECONDARY_TEXT: 'text-powercup-600', BORDER: 'border-powercup-500',
                 LOGO_SVG: `<svg width="40" height="40" viewBox="0 0 100 100" fill="none"><path d="M78 40V70C78 80.25 70.25 88 60 88H30C19.75 88 12 80.25 12 70V40C12 29.75 19.75 22 30 22H60C70.25 22 78 29.75 78 40Z" fill="#3f6212"/><circle cx="45" cy="95" r="5" fill="#365314" opacity="0.8"/><rect x="20" y="80" width="50" height="5" rx="2.5" fill="#365314"/><rect x="20" y="30" width="50" height="50" fill="#f7fee7" rx="5"/><rect x="25" y="65" width="40" height="10" rx="2" fill="#84cc16"/><rect x="25" y="50" width="40" height="10" rx="2" fill="#84cc16"/><rect x="25" y="35" width="40" height="10" rx="2" fill="#84cc16"/><path d="M80 20L60 35L70 45L50 60L75 60L65 80L85 65L75 55L85 45L65 45L75 25Z" fill="#facc15" stroke="#3f6212" stroke-width="2" stroke-linejoin="round"/><path d="M78 40C88 40 88 50 88 60C88 70 88 80 78 80" stroke="#3f6212" stroke-width="8" stroke-linecap="round"/></svg>`,
                 NAV_BG: 'bg-powercup-900', NAV_SUBTITLE_BG: 'bg-powercup-800', NAV_SUBTITLE_TEXT: 'text-powercup-100'
             }
         };
 
-        const EXTERNAL_APP_URL = 'https://faraujoteixeiradrk-creator.github.io/CALCULADORA-DRK-POWER-QR-CAMBIANDO-COLORES-DESCUENTO-y-DESCAR-TLF/';
+        // URL base de la aplicación (usada para generar el QR)
+        const EXTERNAL_APP_URL = 'https://faraujoteixeiradrk-creator.github.io/CALCULADORA-DRK-POWER-QR-CAMBIANDO-COLORES-DESCUENTO-y-DESCAR-TLF--2.0-TD-3.0-TD-6.1TD/';
         
         // Estado
         let currentTariffs = [];
@@ -468,7 +517,8 @@
         let lastComparisonResult = null;
         let comparisonMode = 'drk_prioritized';
         let activeBrand = BRANDS.DRK;
-        
+        let qrCodeInstance = null; // Instancia de QRCode.js
+
         // Variables Escáner
         let scannerRunning = false;
         let stream = null, video = null, canvas = null, canvasCtx = null, animationFrameId = null;
@@ -501,7 +551,23 @@
         function selectTariffType(type) {
             currentTariffType = type;
             const config = TARIFF_CONFIG[type];
-            
+            const qrButtonsContainer = document.getElementById('qr-buttons-container');
+
+            // 1. Ocultar/Mostrar botones QR
+            if (config.requiresQR) {
+                qrButtonsContainer.classList.remove('hidden');
+                document.getElementById('manual-input-btn').classList.add('mt-3');
+                document.getElementById('scan-instruction-text').textContent = "Escanea el código QR o introduce datos manualmente.";
+            } else {
+                qrButtonsContainer.classList.add('hidden');
+                document.getElementById('manual-input-btn').classList.remove('mt-3');
+                document.getElementById('scan-instruction-text').textContent = "Introduce los datos de la factura manualmente.";
+                // Asegurarse de ocultar el QR PWA si estaba abierto
+                document.getElementById('qr-toggle-checkbox').checked = false;
+                document.getElementById('qr-content-wrapper').classList.remove('active');
+            }
+
+
             // Actualizar UI
             document.getElementById('current-tariff-label').textContent = config.label;
             document.getElementById('app-subtitle').textContent = `Comparador ${config.label}`;
@@ -520,7 +586,43 @@
             
             // Cargar tarifas específicas
             fetchTariffsFromSheet();
+
+            // Asegurarse de que si el QR está visible, se regenere con la URL y estilos correctos de la nueva tarifa
+            if (document.getElementById('qr-toggle-checkbox').checked) {
+                generateQRCode(activeBrand);
+            }
         }
+
+        // --- GENERACIÓN DE QR CODE ---
+
+        function generateQRCode(brand) {
+            const qrContainer = document.getElementById('qr-code-container');
+            const qrVisualContainer = document.getElementById('qr-visual-container');
+
+            // 1. Construir la URL completa: URL base + Parámetro de Tarifa
+            // Esto asegura que la APP móvil abra la vista correcta
+            const fullUrl = `${brand.QR_URL}?tariff=${currentTariffType}`; 
+
+            // 2. Limpiar el contenedor del QR (si existe una instancia previa)
+            qrContainer.innerHTML = '';
+            qrCodeInstance = null;
+
+            // 3. Generar el nuevo QR
+            qrCodeInstance = new QRCode(qrContainer, {
+                text: fullUrl,
+                width: 140,
+                height: 140,
+                colorDark : brand.QR_CENTER_BG, // Color principal del QR
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            // 4. Aplicar estilos dinámicos CSS Variables para el borde y texto central
+            qrVisualContainer.style.setProperty('--qr-border-color', brand.QR_BORDER_COLOR);
+            qrVisualContainer.style.setProperty('--qr-center-bg', brand.QR_CENTER_BG);
+            qrVisualContainer.style.setProperty('--qr-center-text', `'${brand.QR_TEXT}'`);
+        }
+
 
         // --- CARGA DE DATOS ---
 
@@ -865,20 +967,16 @@
             document.body.classList.toggle('drk-active', isDrk);
 
 
-            // 1. NAVBAR
-            const logoEl = document.querySelector('#navbar h1');
-            logoEl.childNodes.forEach(node => { 
-                if (node.nodeType === 3) node.textContent = brand.NAME + ' ';
-            });
-            let accentSpan = document.getElementById('app-logo-accent');
-            accentSpan.className = `text-${brand.ACCENT}`;
-            accentSpan.textContent = brand.ACCENT_TEXT;
+            // 1. NAVBAR (Corregido para evitar redundancia de texto)
+            document.getElementById('app-logo-main').textContent = brand.NAME;
+            document.getElementById('app-logo-accent').textContent = brand.ACCENT_TEXT;
+            document.getElementById('app-logo-accent').className = `text-${brand.ACCENT}`;
 
             document.getElementById('navbar').className = `w-full ${brand.NAV_BG} text-white p-4 shadow-md sticky top-0 z-50`;
             document.getElementById('app-subtitle').className = `text-xs ${brand.NAV_SUBTITLE_BG} px-2 py-1 rounded ${brand.NAV_SUBTITLE_TEXT}`;
 
             // 2. LANDING PAGE CONTENT
-            document.getElementById('landing-title').textContent = brand.TITLE; // Set main title
+            document.getElementById('landing-title').textContent = brand.TITLE; // Set main title in CAPS
             document.getElementById('landing-icon-bg').className = `w-16 h-16 ${bg50} rounded-full flex items-center justify-center mx-auto mb-4 ${text800} shadow-inner`;
             document.getElementById('landing-icon-bg').innerHTML = brand.LOGO_SVG; // Set main logo
 
@@ -888,11 +986,24 @@
             
             // 4. MAIN ACTION BUTTONS (Scanner/Input View)
             const primaryButtonClass = `w-full bg-gradient-to-r ${brand.PRIMARY_BUTTON} text-white font-bold py-4 px-6 rounded-2xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-3 mb-3`;
-            document.getElementById('start-scan-btn').className = primaryButtonClass;
+            const startScanBtn = document.getElementById('start-scan-btn');
+            if (startScanBtn) startScanBtn.className = primaryButtonClass; // Apply to scan button if visible
 
-            const secondaryButtonBase = `w-full ${bg50} ${isDrk ? 'hover:bg-drk-100' : 'hover:bg-powercup-100'} ${text800} font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3`;
-            document.getElementById('upload-menu-btn').className = secondaryButtonBase + ' mb-3';
-            document.getElementById('manual-input-btn').className = secondaryButtonBase + ' mt-3'; 
+            const secondaryButtonBase = `w-full ${brand.SECONDARY_BUTTON_BG} ${isDrk ? 'hover:bg-drk-100' : 'hover:bg-powercup-100'} ${brand.SECONDARY_BUTTON_TEXT} font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3`;
+            const uploadMenuBtn = document.getElementById('upload-menu-btn');
+            if (uploadMenuBtn) uploadMenuBtn.className = secondaryButtonBase + ' mb-3'; // Apply to upload button if visible
+            
+            // Apply unique style to Manual Input button (Green BG, White Text when Power Cup)
+            const manualInputBtn = document.getElementById('manual-input-btn');
+            if (manualInputBtn) {
+                if (!isDrk) { // POWER CUP active
+                    // Estilo Verde solido para Datos a Mano
+                    manualInputBtn.className = `w-full bg-powercup-500 hover:bg-powercup-600 text-white font-bold py-3 px-6 rounded-xl shadow-sm transform transition active:scale-95 flex items-center justify-center gap-3`;
+                } else { // DRK active
+                    manualInputBtn.className = secondaryButtonBase + ' mt-3'; // Uses DRK secondary style (bg-drk-50)
+                }
+            }
+
 
             // 5. Result Header Gradient & Card Borders
             document.getElementById('result-header').className = `bg-gradient-to-r ${brand.PRIMARY_BG_GRADIENT} p-6 text-white text-center relative overflow-hidden`;
@@ -925,6 +1036,11 @@
                     arrowIcon.classList.add('group-hover:text-powercup-500');
                 }
             });
+            
+            // 8. Regenerar QR si está visible
+            if (document.getElementById('qr-toggle-checkbox').checked) {
+                generateQRCode(brand);
+            }
         }
 
         // --- SCANNER ---
@@ -1011,6 +1127,19 @@
              document.getElementById('send-offer-modal').classList.remove('hidden');
              document.getElementById('send-offer-modal').classList.add('flex');
         };
+
+        // QR Visibility Toggle Listener
+        document.getElementById('qr-toggle-checkbox').addEventListener('change', (e) => {
+            const wrapper = document.getElementById('qr-content-wrapper');
+            if (e.target.checked) {
+                // Si se activa, generamos el QR con el branding actual
+                generateQRCode(activeBrand);
+                wrapper.classList.add('active');
+            } else {
+                wrapper.classList.remove('active');
+            }
+        });
+
 
         // Modals
         window.showErrorModal = (msg) => {
